@@ -1,0 +1,10 @@
+
+Number of images: 1
+
+======================
+Objects per class:
+yellow_cone -> 26
+blue_cone -> 22
+orange_cone -> 2
+
+Total number of objects: 50
