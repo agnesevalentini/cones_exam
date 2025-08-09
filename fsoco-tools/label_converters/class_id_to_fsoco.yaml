@@ -1,0 +1,16 @@
+# Classes: use ints
+yellow_cone: 0
+blue_cone: 1
+orange_cone: 2
+large_orange_cone: 3
+unknown_cone:
+  - 4
+  - 5
+
+seg_yellow_cone: 0
+seg_blue_cone: 1
+seg_orange_cone: 2
+seg_large_orange_cone: 3
+seg_unknown_cone:
+  - 4
+  - 5

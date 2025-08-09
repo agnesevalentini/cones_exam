@@ -19,15 +19,14 @@ test: # test images (optional)
 # Classes
 names:
     0: yellow_cone
-    1: seg_yellow_cone
-    2: blue_cone
-    3: seg_blue_cone
-    4: orange_cone
-    5: seg_orange_cone
-    6: large_orange_cone
-    7: seg_large_orange_cone
-    8: unknown_cone
-    9: seg_unknown_cone
-
+    1: blue_cone
+    2: orange_cone
+    #3: seg_blue_cone
+    #4: orange_cone
+    #5: seg_orange_cone
+    #6: large_orange_cone
+    #7: seg_large_orange_cone
+    #8: unknown_cone
+    #9: seg_unknown_cone
 # Download script/URL (optional)
 # download: https://github.com/ultralytics/assets/releases/download/v0.0.0/coco8.zip

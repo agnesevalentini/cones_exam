@@ -1,0 +1,15 @@
+# Classes: use strings
+classes:
+  yellow_cone:
+  blue_cone:
+  orange_cone: small_orange_cone
+  large_orange_cone:
+  unknown_cone: other
+
+# Tags: use strings
+tags:
+  sticker_band_removed:
+    - (sticker)_or_(band_removed)
+    - sticker/band_removed]
+  truncated: bounding_box_occluded
+  knocked_over:
