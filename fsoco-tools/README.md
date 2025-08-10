@@ -41,11 +41,11 @@ pip install python-magic-bin
 
 # Make sure you are in the tools directory, otherwise adjust the '.' path to point to it.
 # Use Setuptools configuration to install tools to environment
+
+pip install pyobjc-core==10.3.2
+
 # For usage of the CLI tools only
 pip install --editable ".[sly]"
-# For development
-pip install -r requirements.txt
-pre-commit install
 
 # You have just installed the FSOCO Tools Python package
 # Have a look at the usage help with (when executed the first time, this can take some seconds):
@@ -55,6 +55,11 @@ fsoco --help
 # As long as the environment is activated you can use the tools from wherever.
 # Some of the scripts expect a default directory structure, please make sure
 # to read the help tooltips before executing them or set the according options correctly.
+
+#JUST For development, AGNESE DON'T DO THIS:
+pip install -r requirements.txt
+pre-commit install
+
 ``` 
 ## Development
 ### pre-commit hooks
