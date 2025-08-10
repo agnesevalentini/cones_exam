@@ -14,7 +14,7 @@ The installation process is tested daily against Ubuntu 18.04, Ubuntu 20.04, and
 Create a new Python environment with your tool of choice. We use Conda in this brief instruction.
 
 ```shell script
-# Create new environment with Python 3.8
+# Create new environment with Python 3.8, this specific version required 
 conda create -n fsoco python=3.8
 
 # Activate created environment
@@ -31,8 +31,10 @@ pip install setuptools==60.8.2
 # For macOS users: Install system dependencies
 brew install libmagic
 
-# Install required dependencies to avoid conflicts
-pip install pypandoc-binary
+# on Linux, install libraries and a specific version of pypandoc otherwise it won't work
+sudo apt install libmagic1 libmagic-dev
+pip install python-magic
+pip install "pypandoc<1.5" 
 
 # For macOS: Install compatible python-magic version
 pip install python-magic-bin
@@ -42,6 +44,7 @@ pip install python-magic-bin
 # Make sure you are in the tools directory, otherwise adjust the '.' path to point to it.
 # Use Setuptools configuration to install tools to environment
 
+# this is just for MacOS NOT for Linux
 pip install pyobjc-core==10.3.2
 
 # For usage of the CLI tools only
