@@ -1,8 +1,8 @@
 yellow_cone
-seg_yellow_cone
-blue_cone
-seg_blue_cone
+blue_cone 
 orange_cone
+seg_blue_cone
+seg_yellow_cone
 seg_orange_cone
 large_orange_cone
 seg_large_orange_cone
