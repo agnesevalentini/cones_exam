@@ -21,6 +21,7 @@ names:
     0: yellow_cone
     1: blue_cone
     2: orange_cone
+    3: large_orange_cone
     #3: seg_blue_cone
     #4: orange_cone
     #5: seg_orange_cone

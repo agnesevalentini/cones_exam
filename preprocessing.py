@@ -45,7 +45,7 @@ if img_dir.exists():
             continue
         p.rename(q)
 
-# ANN: rimuovere l'estensione in mezzo prima di .json se presente (es. .jpg.json -> .json)
+# # ANN: rimuovere l'estensione in mezzo prima di .json se presente (es. .jpg.json -> .json)
 img_exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 if ann_dir.exists():
     for p in ann_dir.rglob("*.json"):
@@ -59,5 +59,48 @@ if ann_dir.exists():
             print(f"Attenzione: file di destinazione già esistente, salto: {q}")
             continue
         p.rename(q)
+
+# Sincronizzazione: elimina file senza corrispondente tra img e ann (ignorando estensioni)
+if img_dir.exists() and ann_dir.exists():
+    # Costruisci insiemi di percorsi relativi senza estensione
+    img_bases = set()
+    for p in img_dir.rglob("*"):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(img_dir)
+        # rimuovi tutti i suffissi (robusto anche se non ce ne sono)
+        while rel.suffix:
+            rel = rel.with_suffix("")
+        img_bases.add(rel.as_posix())
+
+    ann_bases = set()
+    for p in ann_dir.rglob("*.json"):
+        rel = p.relative_to(ann_dir)
+        rel = rel.with_suffix("")  # togli .json
+        # nel caso residuassero estensioni di immagine
+        while rel.suffix.lower() in img_exts:
+            rel = rel.with_suffix("")
+        ann_bases.add(rel.as_posix())
+
+    # Elimina annotazioni senza immagine corrispondente
+    for p in ann_dir.rglob("*.json"):
+        rel = p.relative_to(ann_dir)
+        rel = rel.with_suffix("")
+        while rel.suffix.lower() in img_exts:
+            rel = rel.with_suffix("")
+        if rel.as_posix() not in img_bases:
+            print(f"Rimuovo annotation senza immagine: {p}")
+            p.unlink()
+
+    # Elimina immagini senza annotazione corrispondente
+    for p in img_dir.rglob("*"):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(img_dir)
+        while rel.suffix:
+            rel = rel.with_suffix("")
+        if rel.as_posix() not in ann_bases:
+            print(f"Rimuovo immagine senza annotation: {p}")
+            p.unlink()
 
 
