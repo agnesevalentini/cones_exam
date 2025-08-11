@@ -3,12 +3,16 @@ from pathlib import Path
 import shutil
 
 
-project_folder = input("Folder to preprocess in a format accepted by fscoco tools: ")
+input_folders = input("Folders to preprocess in a format accepted by fscoco tools, space separated. \n Remember that the meta.json must be at the same level of all folders: ")
+input_folders = input_folders.split()
+
+project_folder = input("Project folder name (will be created in current directory): ")
+
 dataset_dir = Path(project_folder) / "dataset"
 dataset_dir.mkdir(parents=True, exist_ok=True)
 
 # Copia meta.json dal livello superiore dentro la cartella project_folder
-meta_src = Path(project_folder).parent / "meta.json"
+meta_src = Path(input_folders[0]).parent / "meta.json"
 meta_dst = Path(project_folder) / "meta.json"
 if meta_src.exists():
     if meta_dst.exists():
@@ -18,13 +22,15 @@ if meta_src.exists():
 else:
     print(f"Attenzione: 'meta.json' non trovato in {meta_src}")
 
-for name in ("ann", "img"):
-    src = Path(project_folder) / name
-    dest = dataset_dir / name
-    if not src.exists():
-        print(f"Attenzione: sorgente non trovata: {src}")
-        continue
-    shutil.copytree(src, dest, dirs_exist_ok=True)
+for folder in input_folders:
+    for name in ("ann", "img"):
+        src = Path(folder) / name
+        dest = dataset_dir / name
+        if not src.exists():
+            print(f"Attenzione: sorgente non trovata: {src}")
+        else:
+            print(f"Copia da {src} a {dest} di {name}")
+            shutil.copytree(src, dest, dirs_exist_ok=True)
 
 # Normalizzazione nomi file
 img_dir = dataset_dir / "img"

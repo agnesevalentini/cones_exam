@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
-from typing import Dict
+from typing import Dict, Iterable, List
 
 
 PREFERRED_EXT_ORDER = [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"]
@@ -41,6 +41,22 @@ def build_extension_map(img_dir: Path, case_insensitive: bool = False) -> Dict[s
             if ext_priority(ext) > ext_priority(mapping[key]):
                 mapping[key] = ext
     return mapping
+
+
+def build_extension_map_multi(img_dirs: Iterable[Path], case_insensitive: bool = False) -> Dict[str, str]:
+    """Unisce le mappe di estensioni provenienti da più cartelle 'img'.
+
+    In caso di conflitto sullo stesso basename, sceglie l'estensione con
+    priorità più alta secondo PREFERRED_EXT_ORDER (indipendente dall'ordine
+    delle sorgenti).
+    """
+    combined: Dict[str, str] = {}
+    for img_dir in img_dirs:
+        partial = build_extension_map(img_dir, case_insensitive=case_insensitive)
+        for key, ext in partial.items():
+            if key not in combined or ext_priority(ext) > ext_priority(combined[key]):
+                combined[key] = ext
+    return combined
 
 
 def rename_images(images_dir: Path, mapping: Dict[str, str], dry_run: bool = False, case_insensitive: bool = False) -> tuple[int, int, int]:
@@ -88,17 +104,28 @@ def rename_images(images_dir: Path, mapping: Dict[str, str], dry_run: bool = Fal
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Aggiunge l'estensione ai file in 'images' usando quelle trovate in 'img' "
-            "(match per basename)."
+            "Aggiunge l'estensione ai file in 'images' usando quelle trovate in una o più "
+            "cartelle sorgenti contenenti 'img' (match per basename)."
         )
     )
     parser.add_argument(
         "src_root",
-        help="Cartella sorgente che contiene la sottocartella 'img' con i file con estensione",
+        help="Cartella sorgente principale che contiene la sottocartella 'img' con i file con estensione",
     )
     parser.add_argument(
         "dst_root",
         help="Cartella destinazione che contiene la sottocartella 'images' con file senza estensione",
+    )
+    parser.add_argument(
+        "-s",
+        "--src",
+        dest="extra_src_roots",
+        action="append",
+        default=[],
+        help=(
+            "Cartella sorgente AGGIUNTIVA (ripetibile) che contiene la sottocartella 'img'. "
+            "Le estensioni verranno aggregate tra tutte le sorgenti."
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -116,21 +143,38 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
 
-    src_img = Path(args.src_root).expanduser().resolve() / "img"
+    # Colleziona tutte le cartelle 'img' dalle sorgenti specificate
+    src_roots: List[Path] = [Path(args.src_root)] + [Path(p) for p in args.extra_src_roots]
+    src_imgs: List[Path] = [(p.expanduser().resolve() / "img") for p in src_roots]
     dst_images = Path(args.dst_root).expanduser().resolve() / "images"
 
-    if not src_img.is_dir():
-        print(f"Errore: la cartella 'img' non esiste in: {src_img.parent}")
+    # Filtra solo quelle esistenti e segnala quelle mancanti
+    existing_src_imgs = []
+    missing_src_imgs = []
+    for d in src_imgs:
+        if d.is_dir():
+            existing_src_imgs.append(d)
+        else:
+            missing_src_imgs.append(d)
+
+    if missing_src_imgs:
+        for d in missing_src_imgs:
+            print(f"[WARN] La cartella 'img' non esiste: {d}")
+
+    if not existing_src_imgs:
+        print("Errore: nessuna cartella sorgente valida trovata (con sottocartella 'img').")
         return 1
     if not dst_images.is_dir():
         print(f"Errore: la cartella 'images' non esiste in: {dst_images.parent}")
         return 1
 
-    print(f"Sorgente (img): {src_img}")
+    print("Sorgenti (img):")
+    for d in existing_src_imgs:
+        print(f"  - {d}")
     print(f"Destinazione (images): {dst_images}")
 
-    mapping = build_extension_map(src_img, case_insensitive=args.case_insensitive)
-    print(f"Trovate {len(mapping)} associazioni basename -> estensione dalla sorgente.")
+    mapping = build_extension_map_multi(existing_src_imgs, case_insensitive=args.case_insensitive)
+    print(f"Trovate {len(mapping)} associazioni basename -> estensione dalle sorgenti.")
 
     renamed, skipped, missing = rename_images(
         dst_images, mapping, dry_run=args.dry_run, case_insensitive=args.case_insensitive
