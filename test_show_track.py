@@ -1,7 +1,6 @@
 import os
+import matplotlib.pyplot as plt
 import numpy as np
-#from trajectory_planning_helpers.calc_normal_vectors import calc_normal_vectors
-from trajectory_planning_helpers.check_normals_crossing import check_normals_crossing
 
 def load_track_points(track_file):
     with open(track_file, "r") as f:
@@ -25,6 +24,16 @@ def load_racing_line_points(racing_line_file):
             points.append((x, y))
     return points
 
+def derivate(prec,p,succ):
+    dx1 = p[0] - prec[0]
+    dy1 = p[1] - prec[1]
+    dx2 = succ[0] - p[0]
+    dy2 = succ[1] - p[1]
+    dx = (dx1 + dx2) / 2
+    dy = (dy1 + dy2) / 2
+    
+    return dx,dy
+
 def metodo2(points):
     w_right_x=[]
     w_right_y=[]
@@ -36,19 +45,12 @@ def metodo2(points):
     # Calcola le direzioni tra i punti per disegnare le larghezze
     for i in range(len(points)):
         if i == 0:
-            dx = points[i+1][0] - points[i][0]
-            dy = points[i+1][1] - points[i][1]
+            dx,dy=derivate(points[-1],points[0],points[1])
         elif i == len(points) - 1:
-            dx = points[i][0] - points[i-1][0]
-            dy = points[i][1] - points[i-1][1]
+            dx,dy=derivate(points[i-1],points[i],points[0])
         else:
-            # Media dei vettori precedente e successivo
-            dx1 = points[i][0] - points[i-1][0]
-            dy1 = points[i][1] - points[i-1][1]
-            dx2 = points[i+1][0] - points[i][0]
-            dy2 = points[i+1][1] - points[i][1]
-            dx = (dx1 + dx2) / 2
-            dy = (dy1 + dy2) / 2
+            dx,dy=derivate(points[i-1],points[i],points[i+1])
+
     # Vettore perpendicolare normalizzato
         perp = np.array([-dy, dx])
         perp /= np.linalg.norm(perp)
@@ -56,10 +58,10 @@ def metodo2(points):
     # Calcolo bordo destro e sinistro
         cx, cy = points[i][0], points[i][1]
         wR, wL = points[i][2], points[i][3]
-        w_right_x.append(cx + perp[0] * wR)
-        w_right_y.append(cy + perp[1] * wR)
-        w_left_x.append(cx - perp[0] * wL)
-        w_left_y.append(cy - perp[1] * wL)
+        w_right_x.append(cx - perp[0] * wR)
+        w_right_y.append(cy - perp[1] * wR)
+        w_left_x.append(cx + perp[0] * wL)
+        w_left_y.append(cy + perp[1] * wL)
         center_x.append((w_right_x[-1] + w_left_x[-1]) / 2)
         center_y.append((w_right_y[-1] + w_left_y[-1]) / 2)
         #crea center_x,center_y
@@ -95,21 +97,29 @@ def plot_tracks(axs,left_x,left_y,centerline,right_x,right_y,raceline, filename)
         xl, yl = left_x[i], left_y[i]
         axs.plot([xr, xl], [yr, yl], 'g--', linewidth=0.5)
 
-
-
 def curva_direzione(prev_point, curr_point, next_point):
     # Vettore dal punto precedente al corrente
     v1 = np.array([curr_point[0] - prev_point[0], curr_point[1] - prev_point[1]])
     # Vettore dal corrente al successivo
     v2 = np.array([next_point[0] - curr_point[0], next_point[1] - curr_point[1]])
     # Calcola il prodotto vettoriale (solo la componente z)
-    cross = v1[1]*v2[0] -v1[0]*v2[1]
+    cross = v1[1]*v2[0] - v1[0]*v2[1]
+    # Calcola il prodotto scalare per l'angolo
+    dot = np.dot(v1, v2)
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+    if norm_v1 == 0 or norm_v2 == 0:
+        return 0  # Evita divisione per zero
+    angle = np.arccos(np.clip(dot / (norm_v1 * norm_v2), -1.0, 1.0))
+    leeway = np.deg2rad(5)  # ad esempio 5 gradi di tolleranza
+    if abs(angle) < leeway:
+        return 0  # rettilineo
     if cross > 0:
-        return -1 #"sinistra"
+        return -1  # sinistra
     elif cross < 0:
-        return  1 #"destra"
+        return 1   # destra
     else:
-        return  0 #"rettilineo"
+        return 0   # rettilineo
     
 def correttore(problems, problem_side_x, problem_side_y, centerline, opposite_side_x, opposite_side_y):
     #sgarbuglio
@@ -142,14 +152,19 @@ def correttore(problems, problem_side_x, problem_side_y, centerline, opposite_si
     new_normals=[]
     for j in problems:
                         #nuovo x               #centro         #vecchio x        #centro             #nuovo y              #centro              #vecchio y        #centro
-        dotprod= (problem_side_x_modified[j]-centerline[j][0])*(problem_side_x[j]-centerline[j][0])+(problem_side_y_modified[i]-centerline[i][1])*(problem_side_y[i]-centerline[i][1])
+        Ax = problem_side_x[j] - centerline[j][0]
+        Ay = problem_side_y[j] - centerline[j][1]
+        Bx = problem_side_x_modified[j] - centerline[j][0]
+        By = problem_side_y_modified[j] - centerline[j][1]
 
-        lengtha=np.sqrt(np.power(problem_side_x[j]-centerline[j][0],2) + np.power(problem_side_y[j]-centerline[j][1],2)) 
-        lengthb=np.sqrt(np.power(problem_side_x_modified[j]-centerline[j][0],2) + np.power(problem_side_y_modified[j]-centerline[j][1],2)) 
-        #TODO calcolare la lunghezza aggiornata di quel punto nuovo
-        thetas.append(np.arccos(dotprod/(lengtha*lengthb)))
+        dotprod = Ax * Bx + Ay * By
+        lengtha = np.sqrt(Ax**2 + Ay**2)
+        lengthb = np.sqrt(Bx**2 + By**2)
+
+        theta = np.arccos(dotprod / (lengtha * lengthb))
+        thetas.append(theta)
             #normale nuova
-        n=((problem_side_x_modified[j]-centerline[j][0])/lengthb, (problem_side_y_modified[j]-centerline[j][1])/lengthb)
+        n=[(problem_side_x_modified[j]-centerline[j][0])/lengthb, (problem_side_y_modified[j]-centerline[j][1])/lengthb]
         new_normals.append(n)
        
         
@@ -159,6 +174,34 @@ def correttore(problems, problem_side_x, problem_side_y, centerline, opposite_si
 
     return problem_side_x_modified, problem_side_y_modified, opposite_side_x_modified, opposite_side_y_modified, thetas, new_normals
 
+def ccw(A,B,C):
+    return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+
+def intersect(A,B,C,D):
+    return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
+
+def calc_intersect(A,B,C,D):
+          #x1   x3     y3    y4
+    numt=(A[0]-C[0])*(C[1]-D[1])-(A[1]-C[1])*(C[0]-D[0])
+    dent=(A[0]-B[0])*(C[1]-D[1])-(A[1]-B[1])*(C[0]-D[0])
+    t=numt/dent
+    xt=A[0]+t*(B[0]-A[0])
+    yt=A[1]+t*(B[1]-A[1])
+    
+    numu=(A[0]-B[0])*(A[1]-C[1])-(A[1]-B[1])*(A[0]-C[0])
+    denu=(A[0]-B[0])*(C[1]-D[1])-(A[1]-B[1])*(C[0]-D[0])
+    u=numu/denu
+    
+    return xt,yt,t
+
+def add_points(prec,p1,p2,succ):
+    dx1,dy1=derivate(prec,p1,p2)
+    dx2,dy2=derivate(p1,p2,succ)
+
+    p1n=[p1[0]+dx1,p1[1]+dy1]
+    p2n=[p2[0]+dx2,p2[1]+dy2]
+    x,y,t=calc_intersect(p1,p1n,p2,p2n)
+    return x,y
 
 if __name__ == "__main__":
 
@@ -173,7 +216,9 @@ if __name__ == "__main__":
     points = load_track_points(track_path)
     raceline=load_racing_line_points(racing_line_path)
     
-    plot_tracks(points,raceline)
-        
+    right_x, right_y, left_x, left_y, center_x, center_y, normals = metodo2(points)
+    fig, ax = plt.subplots(1, 1, figsize=(6,12))
+    plot_tracks(ax,left_x, left_y, points, right_x, right_y, raceline,filename)
+    
 
 
