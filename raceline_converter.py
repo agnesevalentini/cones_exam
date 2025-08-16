@@ -3,7 +3,7 @@
 #creo una bezier curve tra 2 punti e l'incrocio delle loro tangenti.
 #trovo dove questa curva interseca la normale vicina
 #TOSOLVE: come faccio a sapere che cosa è tra un punto della raceline e l'altra?
-from test_show_track import curva_direzione,load_track_points,load_racing_line_points, intersect, calc_intersect, add_points
+from racetrack_library import curva_direzione,load_track_points,load_racing_line_points, plot_tracks,intersect, calc_intersect, add_points
 from correction_of_track import correction_of_track
 import matplotlib.pyplot as plt
 import os
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     tracks_dir = "tracks/train/tracks"
     #filename = "Norisring.csv"
     racing_line_dir = "tracks/train/racelines"
-    corrected_racing_line_dir="tracks/train/racelinesConnected"
+    corrected_racing_line_dir="tracks/train/racelinesCorrected"
     correctones=0
     filenames = [f for f in os.listdir(tracks_dir) if os.path.isfile(os.path.join(tracks_dir, f))]
     for filename in filenames:
@@ -112,11 +112,11 @@ if __name__ == "__main__":
         points = np.array(load_track_points(track_path))
         raceline=np.array(load_racing_line_points(racing_line_path))
 
-
+        #print(filename)
         left_x, left_y, points, right_x, right_y, thetas, normals, intersec_points=raceline_on_normals(points,raceline)
         raceline_path = os.path.join(corrected_racing_line_dir,filename)
         np.savetxt(raceline_path, intersec_points, fmt="%.6f", delimiter=",")
-        # print(intersec_points)
+        #print(intersec_points)
         
         # if(len(intersec_points)!=len(left_x)):
         #     print(filename, len(intersec_points))

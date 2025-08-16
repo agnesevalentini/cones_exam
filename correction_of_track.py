@@ -2,10 +2,9 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 #from trajectory_planning_helpers.calc_normal_vectors import calc_normal_vectors
-from test_show_track import metodo2, load_track_points,load_racing_line_points, plot_tracks, correttore, curva_direzione,intersect
+from racetrack_library import metodo2, load_track_points,load_racing_line_points, plot_tracks, correttore, curva_direzione,intersect
 
 def correction_of_track(points):
-    
     w_right_x, w_right_y, w_left_x, w_left_y, center_x, center_y, normals = metodo2(points)
     thetas=np.zeros(len(points))
 
@@ -31,6 +30,8 @@ def correction_of_track(points):
         if(direzione==-1):
             w_left_x_mod, w_left_y_mod, w_right_x_mod, w_right_y_mod, t, nn = correttore(problems, w_left_x, w_left_y, points, w_right_x, w_right_y)
             for i in range(len(problems)):
+                if t==np.nan:
+                    print(filename)
                 thetas[problems[i]]=t[i]
                 new_points[problems[i]][3]=np.sqrt(np.power(w_left_x_mod[problems[i]]-points[problems[i]][0],2) + np.power(w_left_y_mod[problems[i]]-points[problems[i]][1],2)) 
                 x,y=nn[i]
@@ -38,6 +39,8 @@ def correction_of_track(points):
         elif(direzione==1):
             w_right_x_mod, w_right_y_mod, w_left_x_mod, w_left_y_mod, t, nn = correttore(problems, w_right_x, w_right_y, points, w_left_x, w_left_y)
             for i in range(len(problems)):
+                if t==np.nan:
+                    print(filename)
                 thetas[problems[i]]=t[i]
                 new_points[problems[i]][2]=np.sqrt(np.power(w_left_x_mod[problems[i]]-points[problems[i]][0],2) + np.power(w_left_y_mod[problems[i]]-points[problems[i]][1],2)) 
                 x,y=nn[i]
@@ -51,11 +54,11 @@ if __name__ == "__main__":
 
     
     tracks_dir = "tracks/train/tracks"
-    filenames = [f for f in os.listdir(tracks_dir) if os.path.isfile(os.path.join(tracks_dir, f))]
+    #filenames = [f for f in os.listdir(tracks_dir) if os.path.isfile(os.path.join(tracks_dir, f))]
 
 
     racing_line_dir = "tracks/train/racelines"
-    filename="NorisringFlippedX.csv"
+    filename="NorisringReversed.csv"
     
     track_path = os.path.join(tracks_dir, filename)
     racing_line_path= os.path.join(racing_line_dir, filename)

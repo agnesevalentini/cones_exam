@@ -4,7 +4,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from test_show_track import metodo2, load_track_points,load_racing_line_points
+from racetrack_library import metodo2, load_track_points,load_racing_line_points
 
 racing_line_dir = "tracks/train/racelines"
 tracks_dir = "tracks/train/tracks"
@@ -64,6 +64,10 @@ for action in ["flipX","flipY","reverse","rotate","scale"]:
         elif action=="reverse":
             reversed_points = points[::-1].copy()
             reversed_raceline = raceline[::-1].copy()
+
+            temp=reversed_points[:,2].copy()
+            reversed_points[:,2]=reversed_points[:,3].copy()
+            reversed_points[:,3]=temp
 
             filenameNoCSV = filename.removesuffix(".csv")
             reversed_track_path = os.path.join(tracks_dir, f"{filenameNoCSV}Reversed.csv")
