@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, mean_poisson_deviance
 import os
 import numpy as np
 from load_data_as_tensor import load_data_as_tensor
@@ -62,7 +63,7 @@ def train(filenames, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
-        if batch % 100 == 0:
+        if batch % 600 == 0:
             loss, current = loss.item(), (batch + 1)
             print(f"loss: {loss:>7f}  [{current:>5d}/{len(filenames):>5d}]")
     
@@ -75,7 +76,10 @@ def test(filenames, model, loss_fn):
     with torch.no_grad():
         for filename in filenames:
             # carica i dati e li porta sul device corretto
-            X, Y = load_data_as_tensor(tracks_dir, racing_line_dir, filename, with_thetas, total_foresight, sampling)
+            if with_normal_lenght==0:
+                X,Y = load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling)
+            else:
+                X,Y = load_data_as_tensor_v2(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling)
             X, Y = X.to(device), Y.to(device)
 
             # forward
@@ -84,11 +88,14 @@ def test(filenames, model, loss_fn):
             # calcola loss
             loss = loss_fn(pred, Y)
             total_loss += loss.item()
+            r2=r2_score(Y,pred)
+            poiss=mean_poisson_deviance(Y,pred)
+            
 
     # media sulla lunghezza del test set
     avg_loss = total_loss / len(filenames)
 
-    return avg_loss
+    return avg_loss,r2,poiss
 
 clock=time.time()
 tracks_dir = "tracks/train/tracks"
@@ -117,11 +124,13 @@ for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------------")
     train(train_data,net,loss_fn,optimizer)
     
-    avg_loss=test(test_data,net,loss_fn)
-    print(f"Test Error: Avg loss: {avg_loss:>8f}")
+    avg_loss,r2,poiss=test(test_data,net,loss_fn)
+    print(f"Test Error: Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, poiss: {poiss:>8f}")
     if t!=0:
-        print("miglioramento del: ",(prec-avg_loss)/prec*100,"%")
+        print(f"miglioramento del: Avg loss: {(prec-avg_loss)/prec*100:>8f}% r2: {(prec_r2-r2)/prec_r2*100:>8f}% poiss: {(prec_poiss-poiss)/prec_poiss*100:>8f}")
     prec=avg_loss
+    prec_r2=r2
+    prec_poiss=prec_poiss
 print("Done!")
 print("time to Train: ", time.time()-clock)
 
