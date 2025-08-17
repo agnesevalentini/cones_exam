@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
+from torchmetrics import TweedieDevianceScore
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, mean_poisson_deviance
+from sklearn.metrics import r2_score
 import os
 import numpy as np
 from load_data_as_tensor import load_data_as_tensor
@@ -16,7 +17,7 @@ hidden_size1=450
 hidden_size2and3=200
 sampling=4
 output_size=2*sampling+1
-learning_rate = 0.0003 # learning rate
+learning_rate = 0.003 # learning rate
 
 class trackNet(nn.Module):
     def __init__(self,input_size, hidden_size1,hidden_size2and3, output_size):
@@ -65,14 +66,16 @@ def train(filenames, model, loss_fn, optimizer):
 
         if batch % 600 == 0:
             loss, current = loss.item(), (batch + 1)
-            print(f"loss: {loss:>7f}  [{current:>5d}/{len(filenames):>5d}]")
+            r2=r2_score(Y.detach().numpy(),pred.detach().numpy())
+            print(f"loss: {loss:>7f}, r2: {r2}  [{current:>5d}/{len(filenames):>5d}]")
     
     return    
 
 def test(filenames, model, loss_fn):
     model.eval()
     total_loss = 0.0
-
+    total_r2 = 0.0
+    total_poiss = 0.0
     with torch.no_grad():
         for filename in filenames:
             # carica i dati e li porta sul device corretto
@@ -88,14 +91,15 @@ def test(filenames, model, loss_fn):
             # calcola loss
             loss = loss_fn(pred, Y)
             total_loss += loss.item()
-            r2=r2_score(Y,pred)
-            poiss=mean_poisson_deviance(Y,pred)
+            total_r2+=r2_score(Y,pred)
+            total_poiss+=poiss_obj(pred,Y)
             
 
     # media sulla lunghezza del test set
     avg_loss = total_loss / len(filenames)
-
-    return avg_loss,r2,poiss
+    avg_r2=total_r2/len(filenames)
+    avg_poiss=total_poiss/len(filenames)
+    return avg_loss,avg_r2,avg_poiss
 
 clock=time.time()
 tracks_dir = "tracks/train/tracks"
@@ -118,19 +122,23 @@ optimizer = torch.optim.NAdam(net.parameters(), lr=learning_rate)
 
 print("time to instantiate model: ", time.time()-clock)
 clock=time.time()
-
 epochs = 100
+
+poiss_obj=TweedieDevianceScore(power=1)
 for t in range(epochs):
+    epoch_clock=time.time()
     print(f"Epoch {t+1}\n-------------------------------")
     train(train_data,net,loss_fn,optimizer)
     
     avg_loss,r2,poiss=test(test_data,net,loss_fn)
-    print(f"Test Error: Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, poiss: {poiss:>8f}")
+    print(f"Test Error: Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, mean poisson deviance: {poiss:>8f}")
     if t!=0:
-        print(f"miglioramento del: Avg loss: {(prec-avg_loss)/prec*100:>8f}% r2: {(prec_r2-r2)/prec_r2*100:>8f}% poiss: {(prec_poiss-poiss)/prec_poiss*100:>8f}")
+        print(f"miglioramento del: Avg loss: {(prec-avg_loss)/prec*100:>8f}% r2: {(prec_r2-r2)/prec_r2*100:>8f}% mean poisson deviance: {(prec_poiss-poiss)/1*100:>8f}%")
     prec=avg_loss
     prec_r2=r2
-    prec_poiss=prec_poiss
+    prec_poiss=poiss
+    print("time for epoch execution: ", time.time()-epoch_clock)
+    
 print("Done!")
 print("time to Train: ", time.time()-clock)
 
