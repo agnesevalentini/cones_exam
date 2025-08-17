@@ -32,7 +32,7 @@ class trackNet(nn.Module):
         )   
 
     def forward(self, x):
-        x = self.flatten(x)
+        # x = self.flatten(x)
         logits = logits = self.model_stack(x)
         return logits
 
