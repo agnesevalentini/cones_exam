@@ -1,11 +1,12 @@
 #objective: the NN needs for the racing line to be relative to each Normal of the circuit
-#HOW:
-#creo una bezier curve tra 2 punti e l'incrocio delle loro tangenti.
-#trovo dove questa curva interseca la normale vicina
-#TOSOLVE: come faccio a sapere che cosa è tra un punto della raceline e l'altra?
-from racetrack_library import curva_direzione,load_track_points,load_racing_line_points, plot_tracks,intersect, calc_intersect, add_points
+
+# prendo due punti vicini l'un l'altro dalla raceline
+# trovo dove si intersecano con le normali presenti tra di loro
+# quando finisco le normali tra i due punti delle raceline prendo un nuovo punto della raceline 
+# e ripeto con nuove normalu
+
+from racetrack_library import curva_direzione,load_track_points,load_racing_line_points,intersect, calc_intersect, add_points
 from correction_of_track import correction_of_track
-import matplotlib.pyplot as plt
 import os
 import numpy as np
 
@@ -30,7 +31,6 @@ def raceline_on_normals(points,raceline):
     left_x, left_y, points, right_x, right_y, thetas, normals=correction_of_track(points)
     
     #right_x, right_y, left_x, left_y, center_x, center_y, normals=metodo2(points)
-    
 
     left_x_copy=left_x.copy()
     left_y_copy=left_y.copy()
@@ -44,11 +44,11 @@ def raceline_on_normals(points,raceline):
 
     #CASI LIMITI prima e ultima linea
     #prima
-
-
+    #interseca?
     boolInters=intersect([left_x_copy[0],left_y_copy[0]],[right_x_copy[0],right_y_copy[0]],copy_raceline[-1],copy_raceline[0])
 
     if boolInters:
+        #dove interseca
         xi,yi,t=calc_intersect([left_x_copy[0],left_y_copy[0]],[right_x_copy[0],right_y_copy[0]],copy_raceline[-1],copy_raceline[0])
 
         intersec_points.append(t)

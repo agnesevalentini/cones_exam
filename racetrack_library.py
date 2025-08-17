@@ -31,7 +31,7 @@ def load_racing_line_modified(racing_line_file):
     for line in lines:
         parts = line.strip().split(",")
         if len(parts) == 1 and "#"!=line[0]:
-            w = map(float, parts)
+            w = float(parts[0])
             points.append(w)
     return points
 
