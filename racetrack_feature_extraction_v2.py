@@ -26,16 +26,22 @@ def racetrack_feature_extraction(tracks_dir,racing_line_dir,filename):
     derivates[:,[0,1]]= normals[:,[1,0]]
     derivates[:,1]=-derivates[:,1]
     
+    distances=[]
     #ottiene l'angolo tra 2 normali consecutive (in teoria TODO controllare)
     #!!! radians !!!
     alpha=[]
     for i in range(len(derivates)-1):
         dot=np.dot(derivates[i],derivates[i+1])
         alpha.append(2*np.pi-np.arccos(np.clip(dot, -1.0, 1.0)))
+
+        distances.append(np.sqrt((points[i+1][0]-points[i][0])**2+(points[i+1][1]-points[i][1])**2))
+
     dot=np.dot(derivates[-1],derivates[0])
     alpha.append(2*np.pi-np.arccos(np.clip(dot, -1.0, 1.0)))
+    
+    distances.append(np.sqrt((points[0][0]-points[-1][0])**2+(points[0][1]-points[-1][1])**2))
 
-    return l,alpha,thetas,raceline
+    return l,alpha,thetas,distances,raceline
 
 
 #TEST

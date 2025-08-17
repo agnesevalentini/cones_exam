@@ -4,16 +4,18 @@ from sklearn.model_selection import train_test_split
 import os
 import numpy as np
 from load_data_as_tensor import load_data_as_tensor
+from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2
 import time
 total_foresight=70 #basically f=35
 s=4
 with_thetas=0 #yes=1 no=0
-input_size=(2+with_thetas)*(total_foresight+1)
+with_normal_lenght=1 #difference between v1 and v2
+input_size=(2+with_normal_lenght+with_thetas)*(total_foresight+1)
 hidden_size1=450
 hidden_size2and3=200
 sampling=4
 output_size=2*sampling+1
-learning_rate = 0.003 # learning rate
+learning_rate = 0.0003 # learning rate
 
 class trackNet(nn.Module):
     def __init__(self,input_size, hidden_size1,hidden_size2and3, output_size):
@@ -44,7 +46,10 @@ def train(filenames, model, loss_fn, optimizer):
     
     for batch, filename in enumerate(filenames):
         #print(batch)
-        X,Y = load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling)
+        if with_normal_lenght==0:
+            X,Y = load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling)
+        else:
+            X,Y = load_data_as_tensor_v2(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling)
         track_length=X.shape[0]
         #print(X.shape, Y.shape)
         
@@ -83,8 +88,6 @@ def test(filenames, model, loss_fn):
     # media sulla lunghezza del test set
     avg_loss = total_loss / len(filenames)
 
-    print(f"Test Error: Avg loss: {avg_loss:>8f}")
-
     return avg_loss
 
 clock=time.time()
@@ -113,7 +116,12 @@ epochs = 100
 for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------------")
     train(train_data,net,loss_fn,optimizer)
-    test(test_data,net,loss_fn)
+    
+    avg_loss=test(test_data,net,loss_fn)
+    print(f"Test Error: Avg loss: {avg_loss:>8f}")
+    if t!=0:
+        print("miglioramento del: ",(prec-avg_loss)/prec*100,"%")
+    prec=avg_loss
 print("Done!")
 print("time to Train: ", time.time()-clock)
 
