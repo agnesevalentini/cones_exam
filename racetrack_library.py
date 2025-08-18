@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
-import numpy as np
-
+#import numpy as np
+import mpmath as mpm
 def load_track_points(track_file):
     with open(track_file, "r") as f:
         lines = f.readlines()
@@ -9,7 +9,7 @@ def load_track_points(track_file):
     for line in lines:
         parts = line.strip().split(",")
         if len(parts) == 4 and "#"!=line[0]:
-            x, y, w_right, w_left = map(float, parts)
+            x, y, w_right, w_left = [mpm.mpf(p) for p in parts]
             points.append((x, y, w_right, w_left))
     return points
 
@@ -20,7 +20,7 @@ def load_racing_line_points(racing_line_file):
     for line in lines:
         parts = line.strip().split(",")
         if len(parts) == 2 and "#"!=line[0]:
-            x, y = map(float, parts)
+            x, y = [mpm.mpf(p) for p in parts]
             points.append((x, y))
     return points
 
@@ -31,7 +31,7 @@ def load_racing_line_modified(racing_line_file):
     for line in lines:
         parts = line.strip().split(",")
         if len(parts) == 1 and "#"!=line[0]:
-            w = float(parts[0])
+            w = mpm.mpf(parts[0])
             points.append(w)
     return points
 
@@ -46,42 +46,37 @@ def derivate(prec,p,succ):
     return dx,dy
 
 def metodo2(points):
-    w_right_x=[]
-    w_right_y=[]
-    w_left_x=[]
-    w_left_y=[]
-    center_x=[]
-    center_y=[]
-    normals=[]
+    tot_length=len(points)
+    w_right_x=mpm.matrix(tot_length,1)
+    w_right_y=mpm.matrix(tot_length,1)
+    w_left_x=mpm.matrix(tot_length,1)
+    w_left_y=mpm.matrix(tot_length,1)
+    center_x=mpm.matrix(tot_length,1)
+    center_y=mpm.matrix(tot_length,1)
+    normals=mpm.matrix(tot_length,2)
     # Calcola le direzioni tra i punti per disegnare le larghezze
     for i in range(len(points)):
         if i == 0:
-            dx,dy=derivate(points[-1],points[0],points[1])
+            dx,dy=derivate(points[len(points)-1,:],points[0,:],points[1,:])
         elif i == len(points) - 1:
-            dx,dy=derivate(points[i-1],points[i],points[0])
+            dx,dy=derivate(points[i-1,:],points[i,:],points[0,:])
         else:
-            dx,dy=derivate(points[i-1],points[i],points[i+1])
+            dx,dy=derivate(points[i-1,:],points[i,:],points[i+1,:])
 
     # Vettore perpendicolare normalizzato
-        perp = np.array([-dy, dx])
-        perp /= np.linalg.norm(perp)
-        normals.append(perp)
+        perp = mpm.matrix([-dy, dx])
+        perp /= mpm.norm(perp)
+        normals[i,:]=perp.T
     # Calcolo bordo destro e sinistro
-        cx, cy = points[i][0], points[i][1]
-        wR, wL = points[i][2], points[i][3]
-        w_right_x.append(cx - perp[0] * wR)
-        w_right_y.append(cy - perp[1] * wR)
-        w_left_x.append(cx + perp[0] * wL)
-        w_left_y.append(cy + perp[1] * wL)
-        center_x.append((w_right_x[-1] + w_left_x[-1]) / 2)
-        center_y.append((w_right_y[-1] + w_left_y[-1]) / 2)
+        cx, cy = points[i,0], points[i,1]
+        wR, wL = points[i,2], points[i,3]
+        w_right_x[i]=cx - perp[0] * wR
+        w_right_y[i]=cy - perp[1] * wR
+        w_left_x[i]=cx + perp[0] * wL
+        w_left_y[i]=cy + perp[1] * wL
+        center_x[i]=(w_right_x[i] + w_left_x[i]) / 2
+        center_y[i]=(w_right_y[i] + w_left_y[i]) / 2
 
-    normals=np.array(normals)
-    w_right_x=np.array(w_right_x)
-    w_right_y=np.array(w_right_y)
-    w_left_x=np.array(w_left_x)
-    center_x=np.array(center_x)
-    center_y=np.array(center_y)
     return w_right_x, w_right_y, w_left_x, w_left_y, center_x, center_y, normals
 
 def plot_tracks_already_calced_normals(points, normals):
@@ -93,9 +88,9 @@ def plot_tracks_already_calced_normals(points, normals):
     center_x=[]
     center_y=[]
     for i in range(len(points)):
-        perp = np.array([normals[i][0],normals[i][1]])
-        cx, cy = points[i][0], points[i][1]
-        wR, wL = points[i][2], points[i][3]
+        perp = mpm.matrix([normals[i,0],normals[i,1]])
+        cx, cy = points[i,0], points[i,1]
+        wR, wL = points[i,2], points[i,3]
         w_right_x.append(cx - perp[0] * wR)
         w_right_y.append(cy - perp[1] * wR)
         w_left_x.append(cx + perp[0] * wL)
@@ -113,22 +108,23 @@ def plot_tracks(axs,left_x,left_y,centerline,right_x,right_y,raceline, filename)
         xr, yr = right_x[i], right_y[i]
         xl, yl = left_x[i], left_y[i]
         axs.plot([xr, xl], [yr, yl], 'g--', linewidth=0.5)
+        axs.plot([centerline[i,0], xl], [centerline[i,1], yl], 'r--', linewidth=0.5)
 
 def curva_direzione(prev_point, curr_point, next_point):
     # Vettore dal punto precedente al corrente
-    v1 = np.array([curr_point[0] - prev_point[0], curr_point[1] - prev_point[1]])
+    v1 = mpm.matrix([curr_point[0] - prev_point[0], curr_point[1] - prev_point[1]])
     # Vettore dal corrente al successivo
-    v2 = np.array([next_point[0] - curr_point[0], next_point[1] - curr_point[1]])
+    v2 = mpm.matrix([next_point[0] - curr_point[0], next_point[1] - curr_point[1]])
     # Calcola il prodotto vettoriale (solo la componente z)
     cross = v1[1]*v2[0] - v1[0]*v2[1]
     # Calcola il prodotto scalare per l'angolo
-    dot = np.dot(v1, v2)
-    norm_v1 = np.linalg.norm(v1)
-    norm_v2 = np.linalg.norm(v2)
+    dot = mpm.fdot(v1, v2)
+    norm_v1 = mpm.norm(v1)
+    norm_v2 = mpm.norm(v2)
     if norm_v1 == 0 or norm_v2 == 0:
         return 0  # Evita divisione per zero
-    angle = np.arccos(np.clip(dot / (norm_v1 * norm_v2), -1.0, 1.0))
-    leeway = np.deg2rad(5)  # ad esempio 5 gradi di tolleranza
+    angle = mpm.acos(dot / (norm_v1 * norm_v2))
+    leeway = mpm.mpf('0.03')  # ad esempio 5 gradi di tolleranza
     if abs(angle) < leeway:
         return 0  # rettilineo
     if cross > 0:
@@ -146,10 +142,10 @@ def correttore(problems, problem_side_x, problem_side_y, centerline, opposite_si
     opposite_side_x_modified=opposite_side_x.copy()
     opposite_side_y_modified=opposite_side_y.copy()
     for i in problems_modified:
-        closest=np.inf
+        closest=mpm.inf
         closest_indx=None
         for j in problems_modified:
-            t=np.sqrt(np.power(problem_side_x_modified[j]-problem_side_x_modified[i-1],2) + np.power(problem_side_y_modified[j]-problem_side_y_modified[i-1],2))
+            t=mpm.sqrt(mpm.power(problem_side_x_modified[j]-problem_side_x_modified[i-1],2) + mpm.power(problem_side_y_modified[j]-problem_side_y_modified[i-1],2))
             if(t<closest):
                 closest=t
                 closest_indx=j
@@ -165,30 +161,30 @@ def correttore(problems, problem_side_x, problem_side_y, centerline, opposite_si
         problems_modified.remove(i)
     
     #calcolo di quanto è stato modificato l'angolo
-    thetas=[]
-    new_normals=[]
+    thetas=mpm.matrix(len(problems),1)
+    new_normals=mpm.matrix(len(problems),2)
     for j in problems:
                         #nuovo x               #centro         #vecchio x        #centro             #nuovo y              #centro              #vecchio y        #centro
-        Ax = problem_side_x[j] - centerline[j][0]
-        Ay = problem_side_y[j] - centerline[j][1]
-        Bx = problem_side_x_modified[j] - centerline[j][0]
-        By = problem_side_y_modified[j] - centerline[j][1]
+        Ax = problem_side_x[j] - centerline[j,0]
+        Ay = problem_side_y[j] - centerline[j,1]
+        Bx = problem_side_x_modified[j] - centerline[j,0]
+        By = problem_side_y_modified[j] - centerline[j,1]
 
-        dotprod = np.dot([Ax,Ay],[Bx,By])
-        lengtha = np.sqrt(Ax**2 + Ay**2)
-        lengthb = np.sqrt(Bx**2 + By**2)
+        dotprod = mpm.dot([Ax,Ay],[Bx,By])
+        lengtha = mpm.sqrt(Ax**2 + Ay**2)
+        lengthb = mpm.sqrt(Bx**2 + By**2)
 
         #!!! radians !!!
-        theta = np.arccos(dotprod / (lengtha * lengthb))
-        thetas.append(theta)
+        theta = mpm.acos(dotprod / (lengtha * lengthb))
+        thetas[j]=theta
             #normale nuova
-        n=[(problem_side_x_modified[j]-centerline[j][0])/lengthb, (problem_side_y_modified[j]-centerline[j][1])/lengthb]
-        new_normals.append(n)
+        n=[(problem_side_x_modified[j]-centerline[j,0])/lengthb, (problem_side_y_modified[j]-centerline[j,1])/lengthb]
+        new_normals[j,:]=n
        
         
-        lunghezza_opposta=np.sqrt(np.power(opposite_side_x[j]-centerline[j][0],2) + np.power(opposite_side_y[j]-centerline[j][1],2)) 
-        opposite_side_x_modified[j]=centerline[j][0]-n[0]*lunghezza_opposta
-        opposite_side_y_modified[j]=centerline[j][1]-n[1]*lunghezza_opposta
+        lunghezza_opposta=mpm.sqrt(mpm.power(opposite_side_x[j]-centerline[j,0],2) + mpm.power(opposite_side_y[j]-centerline[j,1],2)) 
+        opposite_side_x_modified[j]=centerline[j,0]-n[0]*lunghezza_opposta
+        opposite_side_y_modified[j]=centerline[j,1]-n[1]*lunghezza_opposta
 
     return problem_side_x_modified, problem_side_y_modified, opposite_side_x_modified, opposite_side_y_modified, thetas, new_normals
 
@@ -206,9 +202,9 @@ def calc_intersect(A,B,C,D):
     xt=A[0]+t*(B[0]-A[0])
     yt=A[1]+t*(B[1]-A[1])
     
-    numu=(A[0]-B[0])*(A[1]-C[1])-(A[1]-B[1])*(A[0]-C[0])
-    denu=(A[0]-B[0])*(C[1]-D[1])-(A[1]-B[1])*(C[0]-D[0])
-    u=numu/denu
+    # numu=(A[0]-B[0])*(A[1]-C[1])-(A[1]-B[1])*(A[0]-C[0])
+    # denu=(A[0]-B[0])*(C[1]-D[1])-(A[1]-B[1])*(C[0]-D[0])
+    # u=numu/denu
     
     return xt,yt,t
 

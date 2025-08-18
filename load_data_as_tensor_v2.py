@@ -3,15 +3,24 @@
 from racetrack_feature_extraction_v2 import racetrack_feature_extraction
 import numpy as np
 import torch
+import time
 
-def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling):
-    l,alpha,thetas,dists,raceline=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename)
+def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,sampling):
     
-    # depends if we know wehter there are modified normals in the tracks
-    if with_thetas==1:
-        features = np.array((l, alpha,dists,thetas))
+    res=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_dists)
+    if(with_dists!=0):
+        l,alpha,thetas,dists,raceline=res
     else:
+        l,alpha,thetas,raceline=res
+    # depends if we know wehter there are modified normals in the tracks
+    if with_dists==1 and with_thetas==1:
+        features = np.array((l, alpha,dists,thetas))
+    elif with_dists==1 and with_thetas==0:
         features = np.array((l,alpha,dists))
+    elif with_dists==0 and with_thetas==1:
+        features = np.array((l, alpha,thetas))
+    else: 
+        features = np.array((l, alpha))
     #print(features.shape)
 
     track_length=len(l)
@@ -38,6 +47,19 @@ def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,total_fo
     # costruisci i target
     Y = np.take(raceline, output_idx)    # shape (track_length, output_size)
     # converti in tensori
-    X = torch.tensor(X, dtype=torch.float32)
-    Y = torch.tensor(Y, dtype=torch.float32)
+
+    X = torch.tensor(X, dtype=torch.float64)
+    Y = torch.tensor(Y, dtype=torch.float64)
+    
     return X,Y
+
+if __name__== "__main__":
+    t=time.time()
+    tracks_dir = "tracks/train/tracks"
+    racing_line_dir = "tracks/train/racelinesCorrected"
+    filename="Shanghai.csv"    
+    
+    X,Y =load_data_as_tensor(tracks_dir,racing_line_dir,filename,0,1,70,4)
+
+    print(X.shape,Y.shape)
+    print(time.time()-t)

@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
 import os
 import numpy as np
-from load_data_as_tensor import load_data_as_tensor
+
 from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2
 import time
 total_foresight=70 #basically f=35
@@ -25,19 +25,19 @@ class trackNet(nn.Module):
         super().__init__()
         self.flatten = nn.Flatten()
         self.model_stack=nn.Sequential(
-        nn.Linear(input_size,hidden_size1),
+        nn.Linear(input_size,hidden_size1,dtype=torch.float64),
         nn.Sigmoid(),
-        nn.Linear(hidden_size1,hidden_size2and3),
+        nn.Linear(hidden_size1,hidden_size2and3,dtype=torch.float64),
         nn.Sigmoid(),
-        nn.Linear(hidden_size2and3,hidden_size2and3),
+        nn.Linear(hidden_size2and3,hidden_size2and3,dtype=torch.float64),
         nn.Sigmoid(),
-        nn.Linear(hidden_size2and3,output_size),
+        nn.Linear(hidden_size2and3,output_size,dtype=torch.float64),
         nn.Hardsigmoid()
         )   
 
     def forward(self, x):
         # x = self.flatten(x)
-        logits = logits = self.model_stack(x)
+        logits = self.model_stack(x)
         return logits
 
 def train(filenames, model, loss_fn, optimizer):
@@ -48,10 +48,7 @@ def train(filenames, model, loss_fn, optimizer):
     
     for batch, filename in enumerate(filenames):
         #print(batch)
-        if with_normal_lenght==0:
-            X,Y = load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling)
-        else:
-            X,Y = load_data_as_tensor_v2(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling)
+        X,Y = load_data_as_tensor_v2(tracks_dir,racing_line_dir,filename,with_thetas,with_normal_lenght,total_foresight,sampling)
         track_length=X.shape[0]
         #print(X.shape, Y.shape)
         
@@ -79,10 +76,7 @@ def test(filenames, model, loss_fn):
     with torch.no_grad():
         for filename in filenames:
             # carica i dati e li porta sul device corretto
-            if with_normal_lenght==0:
-                X,Y = load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling)
-            else:
-                X,Y = load_data_as_tensor_v2(tracks_dir,racing_line_dir,filename,with_thetas,total_foresight,sampling)
+            X,Y = load_data_as_tensor_v2(tracks_dir,racing_line_dir,filename,with_thetas,with_normal_lenght,total_foresight,sampling)
             X, Y = X.to(device), Y.to(device)
 
             # forward
@@ -102,12 +96,12 @@ def test(filenames, model, loss_fn):
     return avg_loss,avg_r2,avg_poiss
 
 clock=time.time()
-tracks_dir = "tracks/train/tracks"
+tracks_dir = "tracks/backup/tracks"
 racing_line_dir = "tracks/train/racelinesCorrected"
 #uso il singolo circuito come batch? si dai
 filenames =np.array( [f for f in os.listdir(tracks_dir) if os.path.isfile(os.path.join(tracks_dir, f))])
-usable_data, valuation_data = train_test_split(filenames,test_size=0.1)
-train_data,test_data=train_test_split(usable_data,test_size=0.2)
+#usable_data, valuation_data = train_test_split(filenames,test_size=0.1)
+train_data,test_data=train_test_split(filenames,test_size=0.2)
 
 print(time.time()-clock)
 clock=time.time()
@@ -131,7 +125,7 @@ for t in range(epochs):
     train(train_data,net,loss_fn,optimizer)
     
     avg_loss,r2,poiss=test(test_data,net,loss_fn)
-    print(f"Test Error: Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, mean poisson deviance: {poiss:>8f}")
+    print(f"Test Error:        Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, mean poisson deviance: {poiss:>8f}")
     if t!=0:
         print(f"miglioramento del: Avg loss: {(prec-avg_loss)/prec*100:>8f}% r2: {(prec_r2-r2)/prec_r2*100:>8f}% mean poisson deviance: {(prec_poiss-poiss)/1*100:>8f}%")
     prec=avg_loss
