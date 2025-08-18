@@ -117,7 +117,7 @@ def curva_direzione(prev_point, curr_point, next_point):
     v2 = mpm.matrix([next_point[0] - curr_point[0], next_point[1] - curr_point[1]])
     # Calcola il prodotto vettoriale (solo la componente z)
     cross = v1[1]*v2[0] - v1[0]*v2[1]
-    # Calcola il prodotto scalare per l'angolo
+    # Calcola il prodotto scalare per l'angolo, uso il dot per tenerlo positivo
     dot = mpm.fdot(v1, v2)
     norm_v1 = mpm.norm(v1)
     norm_v2 = mpm.norm(v2)
@@ -176,7 +176,7 @@ def correttore(problems, problem_side_x, problem_side_y, centerline, opposite_si
 
         #!!! radians !!!
         theta = mpm.acos(dotprod / (lengtha * lengthb))
-        thetas[j]=theta
+        thetas[j]=mpm.degrees(theta)
             #normale nuova
         n=[(problem_side_x_modified[j]-centerline[j,0])/lengthb, (problem_side_y_modified[j]-centerline[j,1])/lengthb]
         new_normals[j,:]=n

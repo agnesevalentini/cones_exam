@@ -1,13 +1,15 @@
 #TODO probably needs fixing, i think the problem is here
 
 from racetrack_feature_extraction_v2 import racetrack_feature_extraction
+from racetrack_feature_pre_extracted import racetrack_feature_pre_extracted
 import numpy as np
 import torch
 import time
-
 def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,sampling):
-    
-    res=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_dists)
+    if tracks_dir=="tracks/train/featureExtracted":
+        res=racetrack_feature_pre_extracted(tracks_dir,racing_line_dir,filename,with_dists) 
+    else:
+        res=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_dists)
     if(with_dists!=0):
         l,alpha,thetas,dists,raceline=res
     else:
@@ -55,11 +57,13 @@ def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,with_dis
 
 if __name__== "__main__":
     t=time.time()
-    tracks_dir = "tracks/train/tracks"
+    #tracks_dir = "tracks/train/tracks"
+    tracks_dir = "tracks/train/featureExtracted"
     racing_line_dir = "tracks/train/racelinesCorrected"
     filename="Shanghai.csv"    
     
     X,Y =load_data_as_tensor(tracks_dir,racing_line_dir,filename,0,1,70,4)
 
     print(X.shape,Y.shape)
+    print(Y)
     print(time.time()-t)

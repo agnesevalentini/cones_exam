@@ -1,14 +1,14 @@
 from correction_of_track import correction_of_track
 from racetrack_library import load_racing_line_modified,load_track_points
 import numpy as np
-from os.path import join
+import os
 import mpmath as mpm
                                                                     #difference between v1 and v2
 def racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_distances):
 
     #ottieni i punti dal file
-    track_path = join(tracks_dir, filename)
-    racing_line_path = join(racing_line_dir, filename)
+    track_path = os.path.join(tracks_dir, filename)
+    racing_line_path = os.path.join(racing_line_dir, filename)
     points =   mpm.matrix(load_track_points(track_path))
     
     #raceline  è gia rappresentato come [0,1] ovvero una posizione relativa sulla normale rispettiva
@@ -42,7 +42,7 @@ def racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_distan
         #     print(dot)
         # alpha[i]=mpm.acos(dot)
         cross = derivates[i,1]*derivates[i+1,0] - derivates[i,0]*derivates[i+1,1]
-        alpha[i]=mpm.asin(cross)
+        alpha[i]=mpm.degrees(mpm.asin(cross))
 
         distances[i]=mpm.sqrt((points[i+1,0]-points[i,0])**2+(points[i+1,1]-points[i,1])**2)
 
@@ -58,11 +58,11 @@ def racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_distan
     
 
     #riconverto in np perchè piu semplice poi passare a tensor
-    l=np.array(l.tolist(), dtype=np.float64)
-    alpha=np.array(alpha.tolist(), dtype=np.float64)
-    thetas=np.array(thetas.tolist(), dtype=np.float64)
-    distances=np.array(distances.tolist(), dtype=np.float64)
-    raceline=np.array(raceline.tolist(), dtype=np.float64)
+    l=np.array(l.tolist(), dtype=np.float64).ravel()
+    alpha=np.array(alpha.tolist(), dtype=np.float64).ravel()
+    thetas=np.array(thetas.tolist(), dtype=np.float64).ravel()
+    distances=np.array(distances.tolist(), dtype=np.float64).ravel()
+    raceline=np.array(raceline.tolist(), dtype=np.float64).ravel()
 
     if with_distances!=0:
         return l,alpha,thetas,distances,raceline
@@ -72,10 +72,14 @@ def racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_distan
 if __name__ == "__main__":
     tracks_dir = "tracks/train/tracks"
     racing_line_dir = "tracks/train/racelinesCorrected"
-    filename="Shanghai.csv"    
-    
-    l,alpha,thetas,distances,raceline=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,1)
-
+    destination= "tracks/train/featureExtracted"
+    filenames = [f for f in os.listdir(tracks_dir) if os.path.isfile(os.path.join(tracks_dir, f))]
+    for filename in filenames:
+        l,alpha,thetas,distances,raceline=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,1)
+        features=np.column_stack([l, alpha, thetas, distances])
+        destination_path = os.path.join(destination, filename)
+        np.savetxt(destination_path, features, fmt="%.6f", delimiter=",")
+        
     print(len(l))
     print(len(alpha))
     print(len(thetas))

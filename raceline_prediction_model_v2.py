@@ -43,7 +43,8 @@ class trackNet(nn.Module):
 def train(filenames, model, loss_fn, optimizer):
     #il singolo filename è una batch di training data
     #se faccio questo vuol dire che in pratica lo stesso dato deve essere utilizzato come lable su neuroni diversi
-    
+    tot_time=0
+
     model.train()
     
     for batch, filename in enumerate(filenames):
@@ -51,6 +52,8 @@ def train(filenames, model, loss_fn, optimizer):
         X,Y = load_data_as_tensor_v2(tracks_dir,racing_line_dir,filename,with_thetas,with_normal_lenght,total_foresight,sampling)
         track_length=X.shape[0]
         #print(X.shape, Y.shape)
+
+        t_batch=time.time()
         
         batch_X = X.view(track_length, -1)   # shape: (track_length, input_size * n_features)
         pred = model(batch_X)                # shape: (track_length, output_size)
@@ -61,12 +64,14 @@ def train(filenames, model, loss_fn, optimizer):
         optimizer.step()
         optimizer.zero_grad()
 
+        tot_time+=time.time()-t_batch
+        
         if batch % 600 == 0:
             loss, current = loss.item(), (batch + 1)
             r2=r2_score(Y.detach().numpy(),pred.detach().numpy())
-            print(f"loss: {loss:>7f}, r2: {r2}  [{current:>5d}/{len(filenames):>5d}]")
+            print(f"loss: {loss:>7f}, r2: {r2}  [{current:>5d}/{len(filenames):>5d}], mean time for exec: {tot_time/(batch+1)}")
     
-    return    
+    return tot_time   
 
 def test(filenames, model, loss_fn):
     model.eval()
@@ -96,7 +101,7 @@ def test(filenames, model, loss_fn):
     return avg_loss,avg_r2,avg_poiss
 
 clock=time.time()
-tracks_dir = "tracks/backup/tracks"
+tracks_dir = "tracks/train/featureExtracted"
 racing_line_dir = "tracks/train/racelinesCorrected"
 #uso il singolo circuito come batch? si dai
 filenames =np.array( [f for f in os.listdir(tracks_dir) if os.path.isfile(os.path.join(tracks_dir, f))])
@@ -122,7 +127,7 @@ poiss_obj=TweedieDevianceScore(power=1)
 for t in range(epochs):
     epoch_clock=time.time()
     print(f"Epoch {t+1}\n-------------------------------")
-    train(train_data,net,loss_fn,optimizer)
+    tot_time_predict=train(train_data,net,loss_fn,optimizer)
     
     avg_loss,r2,poiss=test(test_data,net,loss_fn)
     print(f"Test Error:        Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, mean poisson deviance: {poiss:>8f}")
@@ -131,9 +136,11 @@ for t in range(epochs):
     prec=avg_loss
     prec_r2=r2
     prec_poiss=poiss
-    print("time for epoch execution: ", time.time()-epoch_clock)
+    epoch_time=time.time()-epoch_clock
+    print("time for epoch execution: ", epoch_time, " of which spent waiting for file load: ", epoch_time-tot_time_predict)
     
 print("Done!")
 print("time to Train: ", time.time()-clock)
 
 torch.save(net.state_dict(), "track_model.pt")
+    
