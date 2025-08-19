@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchmetrics import TweedieDevianceScore
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_tweedie_deviance
 import os
 import numpy as np
 
@@ -88,10 +88,11 @@ def test(filenames, model, loss_fn):
             pred = model(X.view(X.shape[0], -1))  # appiattisce input se necessario
 
             # calcola loss
+            
             loss = loss_fn(pred, Y)
             total_loss += loss.item()
             total_r2+=r2_score(Y,pred)
-            total_poiss+=poiss_obj(pred,Y)
+            total_poiss+=mean_tweedie_deviance(Y.flatten(),pred.flatten(),power=2)
             
 
     # media sulla lunghezza del test set
@@ -130,9 +131,9 @@ for t in range(epochs):
     tot_time_predict=train(train_data,net,loss_fn,optimizer)
     
     avg_loss,r2,poiss=test(test_data,net,loss_fn)
-    print(f"Test Error:        Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, mean poisson deviance: {poiss:>8f}")
+    print(f"Test Error:        Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, mean tweedie deviance: {poiss:>8f}")
     if t!=0:
-        print(f"miglioramento del: Avg loss: {(prec-avg_loss)/prec*100:>8f}% r2: {(prec_r2-r2)/prec_r2*100:>8f}% mean poisson deviance: {(prec_poiss-poiss)/1*100:>8f}%")
+        print(f"miglioramento del: Avg loss: {(prec-avg_loss)/prec*100:>8f}% r2: {(prec_r2-r2)/prec_r2*100:>8f}% mean tweedie deviance: {(prec_poiss-poiss)/1*100:>8f}%")
     prec=avg_loss
     prec_r2=r2
     prec_poiss=poiss
@@ -143,4 +144,3 @@ print("Done!")
 print("time to Train: ", time.time()-clock)
 
 torch.save(net.state_dict(), "track_model.pt")
-    
