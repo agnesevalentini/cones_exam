@@ -1,0 +1,11 @@
+# TODO
+### raceline_prediction model_v2.py
+1. create a validation set to better train
+2. as the paper says, each point on the waypont (normal) should be a mean of all 
+the predictions done for that point, I.E if i predict a window of 9 points on 9 different
+normals, each point, after 9 predictions, should be a mean of all 9 predictions over that point
+3. train multiple models at the same time and pick the best one for next epoch
+4. instead of testing over the whole racetrack we should also see the results just on the curves of the racetrack
+5. i should give diffrent weight to the tracks depending on how badly are they doing in the training
+6. test with different sizes of input and output to better represent our objective
+7. test with unequal foresight and backsight, e.g. 4 in front and 12 in the back

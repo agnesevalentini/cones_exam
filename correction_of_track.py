@@ -46,7 +46,6 @@ def correction_of_track(points):
                 new_points[problems[i],2]=mpm.sqrt(mpm.power(w_left_x_mod[problems[i]]-points[problems[i],0],2) + mpm.power(w_left_y_mod[problems[i]]-points[problems[i],1],2)) 
                 x,y=nn[i]
                 new_normals[problems[i]]=[x,y]
-                #TODO decide if also save the new normals
     
         return  w_left_x_mod, w_left_y_mod, new_points, w_right_x_mod, w_right_y_mod, thetas, new_normals
     return      w_left_x, w_left_y, points, w_right_x, w_right_y,thetas, normals

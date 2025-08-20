@@ -8,7 +8,7 @@ import numpy as np
 
 from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2
 import time
-total_foresight=70 #basically f=35
+total_foresight=70 #basically f=total_foresight/2 NOTE must be even number
 s=4
 with_thetas=0 #yes=1 no=0
 with_normal_lenght=1 #difference between v1 and v2
@@ -121,9 +121,11 @@ optimizer = torch.optim.NAdam(net.parameters(), lr=learning_rate)
 
 print("time to instantiate model: ", time.time()-clock)
 clock=time.time()
-epochs = 100
+epochs = 50
 
-poiss_obj=TweedieDevianceScore(power=1)
+poiss_obj=TweedieDevianceScore(power=0)
+
+#TODO implementa il validation set e 
 for t in range(epochs):
     epoch_clock=time.time()
     print(f"Epoch {t+1}\n-------------------------------")
@@ -132,7 +134,7 @@ for t in range(epochs):
     avg_loss,r2,poiss=test(test_data,net,loss_fn)
     print(f"Test Error:        Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, mean poisson deviance: {poiss:>8f}")
     if t!=0:
-        print(f"miglioramento del: Avg loss: {(prec-avg_loss)/prec*100:>8f}% r2: {(prec_r2-r2)/prec_r2*100:>8f}% mean poisson deviance: {(prec_poiss-poiss)/1*100:>8f}%")
+        print(f"miglioramento del: Avg loss: {(prec-avg_loss)/prec*100:>8f}% r2: {(r2-prec_r2)/abs(prec_r2)*100:>8f}% mean poisson deviance: {(prec_poiss-poiss)/1*100:>8f}%")
     prec=avg_loss
     prec_r2=r2
     prec_poiss=poiss

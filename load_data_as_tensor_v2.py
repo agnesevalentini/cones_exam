@@ -1,5 +1,3 @@
-#TODO probably needs fixing, i think the problem is here
-
 from racetrack_feature_extraction_v2 import racetrack_feature_extraction
 from racetrack_feature_pre_extracted import racetrack_feature_pre_extracted
 import numpy as np
