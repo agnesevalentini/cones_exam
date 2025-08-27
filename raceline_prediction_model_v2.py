@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torchmetrics import TweedieDevianceScore, R2Score
-from sklearn.model_selection import train_test_split, KFold
+from sklearn.model_selection import train_test_split
 import copy
 import os
 import numpy as np
