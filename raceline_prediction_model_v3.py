@@ -23,25 +23,43 @@ starting_learning_rate = 0.003 # learning rate
 epochs = 50
 number_of_models=4
 
-class trackNet(nn.Module):
-    def __init__(self,input_size, hidden_size1,hidden_size2and3, output_size):
-        
+class TrackNetConditioned(nn.Module):
+    def __init__(self, input_size, hidden_size1, hidden_size2and3, output_size):
         super().__init__()
-        self.flatten = nn.Flatten()
-        self.model_stack=nn.Sequential(
-        nn.Linear(input_size,hidden_size1,dtype=torch.float64),
-        nn.Sigmoid(),
-        nn.Linear(hidden_size1,hidden_size2and3,dtype=torch.float64),
-        nn.Sigmoid(),
-        nn.Linear(hidden_size2and3,hidden_size2and3,dtype=torch.float64),
-        nn.Sigmoid(),
-        nn.Linear(hidden_size2and3,output_size,dtype=torch.float64),
-        nn.Hardsigmoid()
-        )   
-
-    def forward(self, x):
-        # x = self.flatten(x)
-        logits = self.model_stack(x)
+        
+        # main path
+        self.fc1 = nn.Linear(input_size, hidden_size1, dtype=torch.float64)
+        self.act1 = nn.Sigmoid()
+        
+        # conditioning branch (takes scalar s -> gamma, beta)
+        self.film = nn.Sequential(
+            nn.Linear(1, 32, dtype=torch.float64), nn.Sigmoid(),
+            nn.Linear(32, 2*hidden_size1, dtype=torch.float64)
+        )
+        
+        # rest of the model
+        self.fc2 = nn.Linear(hidden_size1, hidden_size2and3, dtype=torch.float64)
+        self.act2 = nn.Sigmoid()
+        
+        self.fc3 = nn.Linear(hidden_size2and3, hidden_size2and3, dtype=torch.float64)
+        self.act3 = nn.Sigmoid()
+        
+        self.fc4 = nn.Linear(hidden_size2and3, output_size, dtype=torch.float64)
+        self.out = nn.Hardsigmoid()
+    
+    def forward(self, x, s):
+        # main path first layer
+        h = self.act1(self.fc1(x))   # [B, hidden_size1]
+        
+        # conditioning
+        gb = self.film(s.unsqueeze(-1))  # [B, 2*hidden_size1]
+        gamma, beta = torch.chunk(gb, 2, dim=-1)  # [B, hidden_size1] ciascuno
+        h = gamma * h + beta
+        
+        # rest of network
+        h = self.act2(self.fc2(h))
+        h = self.act3(self.fc3(h))
+        logits = self.out(self.fc4(h))
         return logits
 
 def train(files, models, loss_fn):
@@ -66,7 +84,7 @@ def train(files, models, loss_fn):
             t_batch=time.time()
             
             batch_X = X.view(track_length, -1)   # shape: (track_length, input_size * n_features)
-            pred = model(batch_X)                # shape: (track_length, output_size)
+            pred = model(batch_X, Y[:,sampling*symmetric])                # shape: (track_length, output_size)
             loss = loss_fn(pred, Y)
 
             # Backpropagation
@@ -120,8 +138,7 @@ def test(files, model, loss_fn):
             X,Y = file
 
             # forward
-            pred = model(X.view(X.shape[0], -1))  # appiattisce input se necessario
-
+            pred = model(X.view(X.shape[0], -1), Y[:,sampling*symmetric])    # appiattisce input se necessario 
             # calcola loss
             loss = loss_fn(pred, Y)
             total_loss += loss.item()
@@ -156,7 +173,7 @@ net={"model":[],"optimizer":[]}
 for i in range(number_of_models):
     learning_rate= starting_learning_rate*(1+0.25*(i-int(number_of_models/2))) # ex with 4 models starting_learning_rate * [0.5,0.75,1,1.25,1.5]
     print(learning_rate)
-    net["model"].append(trackNet(input_size,hidden_size1,hidden_size2and3,output_size).to(device))
+    net["model"].append(TrackNetConditioned(input_size,hidden_size1,hidden_size2and3,output_size).to(device))
     net["optimizer"].append(torch.optim.NAdam(net["model"][i].parameters(), lr=learning_rate))
 
 print(net)
@@ -170,7 +187,7 @@ poiss_obj=TweedieDevianceScore(power=0).to(device)
 r2_obj=R2Score().to(device)
 
 all_files=[]
-if symmetric==True:
+if symmetric==1:
     for filename in filenames:
         X,Y = load_data_as_tensor_v2(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, sampling)
         
@@ -199,7 +216,7 @@ split_indexs=np.split(all_indexes,n_splits)
 # print(len(usable_data[split_indexs[0][0]]))# single track with both X and Y
 # print(len(usable_data[split_indexs[0][0]][0]))# single track all Xs 
 # print(len(usable_data[split_indexs[0][0]][1]))# single track all Ys 
-print(len(usable_data[split_indexs[0][0]][0][0]))#single data point
+#print(len(usable_data[split_indexs[0][0]][1][0]))#single data point
 
 
 loss_hist=[]

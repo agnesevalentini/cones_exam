@@ -53,6 +53,110 @@ def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,with_dis
     
     return X,Y
 
+def load_data_as_tensor_asimmetric(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,foreward_foresight,sampling):
+    if tracks_dir=="tracks/train/featureExtracted":
+        res=racetrack_feature_pre_extracted(tracks_dir,racing_line_dir,filename,with_dists) 
+    else:
+        res=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_dists)
+    if(with_dists!=0):
+        l,alpha,thetas,dists,raceline=res
+    else:
+        l,alpha,thetas,raceline=res
+    # depends if we know wehter there are modified normals in the tracks
+    if with_dists==1 and with_thetas==1:
+        features = np.array((l, alpha,dists,thetas))
+    elif with_dists==1 and with_thetas==0:
+        features = np.array((l,alpha,dists))
+    elif with_dists==0 and with_thetas==1:
+        features = np.array((l, alpha,thetas))
+    else: 
+        features = np.array((l, alpha))
+    #print(features.shape)
+
+    track_length=len(l)
+    # i need to know how many track points do i need to know before and after the normal we are focussed on
+    back = total_foresight-foreward_foresight
+    
+
+    #crea una lista di indici di tutt i punti
+    centers = np.arange(track_length)
+
+    #crea gli indici per ogni training sample, ovvero "puntocentrale" e indici precedenti e successivi:
+    # indici input: (track_length, input_size)
+    input_idx = (centers[:, None] + np.arange(-back, foreward_foresight+1)) % track_length
+    #print("input_idx",input_idx.shape)
+
+    #come sopra
+    # indici output: (track_length, output_size)
+    output_idx = (centers[:, None] + np.arange(sampling+1)) % track_length
+    #print("output_idx",output_idx.shape)
+    
+    # costruisci le feature
+    #features = [l, alpha]  # aggiungi thetas se serve
+    X = np.stack([np.take(f, input_idx) for f in features], axis=-1)   # shape (track_length, input_size, n_features)
+    # costruisci i target
+    Y = np.take(raceline, output_idx)    # shape (track_length, output_size)
+    # converti in tensori
+
+    X = torch.tensor(X, dtype=torch.float64)
+    Y = torch.tensor(Y, dtype=torch.float64)
+    
+    return X,Y
+
+
+def load_just_curves(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,foreward_foresight,sampling):
+    if tracks_dir=="tracks/train/featureExtracted":
+        res=racetrack_feature_pre_extracted(tracks_dir,racing_line_dir,filename,with_dists) 
+    else:
+        res=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_dists)
+    if(with_dists!=0):
+        l,alpha,thetas,dists,raceline=res
+    else:
+        l,alpha,thetas,raceline=res
+    # depends if we know wehter there are modified normals in the tracks
+    if with_dists==1 and with_thetas==1:
+        features = np.array((l, alpha,dists,thetas))
+    elif with_dists==1 and with_thetas==0:
+        features = np.array((l,alpha,dists))
+    elif with_dists==0 and with_thetas==1:
+        features = np.array((l, alpha,thetas))
+    else: 
+        features = np.array((l, alpha))
+
+    track_length=len(l)
+    # i need to know how many track points do i need to know before and after the normal we are focussed on
+    back = total_foresight-foreward_foresight
+    
+
+    #crea una lista di indici di tutt i punti
+    c=[]
+    for i,a in enumerate(alpha):
+        if a>5:
+            c.append(i)
+    centers = np.arange(track_length)
+
+    #crea gli indici per ogni training sample, ovvero "puntocentrale" e indici precedenti e successivi:
+    # indici input: (track_length, input_size)
+    input_idx = (centers[:, None] + np.arange(-back, foreward_foresight+1)) % track_length
+    #print("input_idx",input_idx.shape)
+
+    #come sopra
+    # indici output: (track_length, output_size)
+    output_idx = (centers[:, None] + np.arange(sampling+1)) % track_length
+    #print("output_idx",output_idx.shape)
+    
+    # costruisci le feature
+    #features = [l, alpha]  # aggiungi thetas se serve
+    X = np.stack([np.take(f, input_idx) for f in features], axis=-1)   # shape (track_length, input_size, n_features)
+    # costruisci i target
+    Y = np.take(raceline, output_idx)    # shape (track_length, output_size)
+    # converti in tensori
+
+    X = torch.tensor(X, dtype=torch.float64)
+    Y = torch.tensor(Y, dtype=torch.float64)
+    
+    return X,Y
+
 if __name__== "__main__":
     t=time.time()
     #tracks_dir = "tracks/train/tracks"

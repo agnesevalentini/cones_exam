@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Carica i dati dal file CSV (senza header)
-data_test = np.loadtxt("select_best_model_and_lr_stable_no_dist_1_models_lr0,003test.csv", delimiter=",")
-data_train = np.loadtxt("select_best_model_and_lr_stable_no_dist_1_models_lr0,003train.csv", delimiter=",")
+data_test = np.loadtxt("20_total_foresight_select_best_model_and_lr_stable_no_dist_1_models_lr0,003test.csv", delimiter=",")
+data_train = np.loadtxt("20_total_foresight_select_best_model_and_lr_stable_no_dist_1_models_lr0,003train.csv", delimiter=",")
 
 # Ogni colonna corrisponde a una metrica
 loss_hist = data_test[:, 0]
