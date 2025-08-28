@@ -53,7 +53,7 @@ def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,with_dis
     
     return X,Y
 
-def load_data_as_tensor_asimmetric(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,foreward_foresight,sampling):
+def load_data_as_tensor_asymmetric(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,foreward_foresight,total_sampling, foreward_sampling):
     if tracks_dir=="tracks/train/featureExtracted":
         res=racetrack_feature_pre_extracted(tracks_dir,racing_line_dir,filename,with_dists) 
     else:
@@ -76,7 +76,7 @@ def load_data_as_tensor_asimmetric(tracks_dir,racing_line_dir,filename,with_thet
     track_length=len(l)
     # i need to know how many track points do i need to know before and after the normal we are focussed on
     back = total_foresight-foreward_foresight
-    
+    back_sampling=total_sampling-foreward_sampling
 
     #crea una lista di indici di tutt i punti
     centers = np.arange(track_length)
@@ -88,7 +88,7 @@ def load_data_as_tensor_asimmetric(tracks_dir,racing_line_dir,filename,with_thet
 
     #come sopra
     # indici output: (track_length, output_size)
-    output_idx = (centers[:, None] + np.arange(sampling+1)) % track_length
+    output_idx = (centers[:, None] + np.arange(-back_sampling,foreward_sampling+1)) % track_length
     #print("output_idx",output_idx.shape)
     
     # costruisci le feature

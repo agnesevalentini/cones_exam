@@ -17,6 +17,7 @@ def racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_distan
     #"corregge" i punti (in realtà se il tracciato è a posto non fa nulla e thetas=np.zeros)
     left_x, left_y, points, right_x, right_y, thetas, normals=correction_of_track(points)
     
+    #----------------------------------------------------
     #ottiene la lunghezza delle normali
     l=mpm.matrix(left_x.rows,1)
     for i in range(len(right_x)):
@@ -32,22 +33,17 @@ def racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_distan
     
     len_derivates=len(normals)
     len_points=len(points)
+
+    #----------------------------------------------------
+    #finds angle between normals and distance between normals
     distances=mpm.matrix(len_derivates,1)
-    #ottiene l'angolo tra 2 normali consecutive (in teoria TODO controllare)
-    #!!! radians !!!
     alpha=mpm.matrix(len_derivates,1)
     for i in range(len_derivates-1):
-        # dot=mpm.fdot(derivates[i,:],derivates[i+1,:])
-        # if(dot<=0):
-        #     print(dot)
-        # alpha[i]=mpm.acos(dot)
         cross = derivates[i,1]*derivates[i+1,0] - derivates[i,0]*derivates[i+1,1]
         alpha[i]=mpm.degrees(mpm.asin(cross))
 
         distances[i]=mpm.sqrt((points[i+1,0]-points[i,0])**2+(points[i+1,1]-points[i,1])**2)
 
-    # dot=mpm.fdot(normals[0,:],normals[len_derivates-1,:])
-    # alpha[len(normals)-1]=mpm.acos(dot)
     cross = derivates[len_derivates-1,1]*derivates[0,0] - derivates[len_derivates-1,0]*derivates[0,1]
     alpha[len_derivates-1]=cross
     distances[len(normals)-1]=mpm.sqrt((points[0,0]-points[len_points-1,0])**2+(points[0,1]-points[len_points-1,1])**2)

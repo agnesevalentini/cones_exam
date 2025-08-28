@@ -6,7 +6,7 @@ import copy
 import os
 import numpy as np
 import collections
-from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2, load_data_as_tensor_asimmetric
+from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2, load_data_as_tensor_asymmetric
 import time
 symmetric=0
 total_foresight=20 #basically f=total_foresight/2 NOTE must be even number
@@ -18,6 +18,8 @@ input_size=(2+with_normal_lenght+with_thetas)*(total_foresight+1)
 hidden_size1=450
 hidden_size2and3=200
 sampling=4
+#note if you want to have only foreward samplings it must be 2*4
+foreward_sampling=4
 output_size=(1+symmetric)*sampling+1
 starting_learning_rate = 0.003 # learning rate
 epochs = 50
@@ -171,7 +173,8 @@ poiss_obj=TweedieDevianceScore(power=0).to(device)
 r2_obj=R2Score().to(device)
 
 all_files=[]
-if symmetric==True:
+if symmetric==1:
+    print("symmetric data")
     for filename in filenames:
         X,Y = load_data_as_tensor_v2(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, sampling)
         
@@ -179,8 +182,9 @@ if symmetric==True:
         all_files.append((X,Y))
     usable_data, test_data = train_test_split(all_files,test_size=0.2)
 else:
+    print("asymmetric data")
     for filename in filenames:
-        X,Y = load_data_as_tensor_asimmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, foreward_foresight, sampling)
+        X,Y = load_data_as_tensor_asymmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, foreward_foresight, output_size,foreward_sampling)
         
         X,Y = X, Y = X.to(device), Y.to(device)
         all_files.append((X,Y))
@@ -213,7 +217,7 @@ pois_train_hist=[]
 
 print("time to instantiate model and data: ", time.time()-clock)
 old_data=None
-#TODO implementa il validation set e 
+
 for t in range(epochs):
     epoch_clock=time.time()
     print(f"Epoch {t+1}\n-------------------------------")

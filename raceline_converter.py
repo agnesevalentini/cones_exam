@@ -11,6 +11,7 @@ import os
 import numpy as np
 
 
+#??? wtf did i write, it's not even used
 def add_extra_points_with_derivatives():
     new_raceline=raceline.copy()
     added=0
@@ -27,7 +28,9 @@ def add_extra_points_with_derivatives():
     return new_raceline
  
 def raceline_on_normals(points,raceline):
-    
+    '''
+    since the raceline are random points on the track we need to make them become points on the normal defined in [0,1]
+    '''
     left_x, left_y, points, right_x, right_y, thetas, normals=correction_of_track(points)
     
     #right_x, right_y, left_x, left_y, center_x, center_y, normals=metodo2(points)

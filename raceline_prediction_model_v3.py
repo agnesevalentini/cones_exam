@@ -6,7 +6,7 @@ import copy
 import os
 import numpy as np
 import collections
-from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2, load_data_as_tensor_asimmetric
+from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2, load_data_as_tensor_asymmetric
 import time
 symmetric=0
 total_foresight=20 #basically f=total_foresight/2 NOTE must be even number
@@ -14,7 +14,7 @@ foreward_foresight=15
 s=4
 with_thetas=0 #yes=1 no=0
 with_normal_lenght=0 #difference between v1 and v2
-input_size=(2+with_normal_lenght+with_thetas)*(total_foresight+1)
+input_size=(2+with_normal_lenght+with_thetas)*(total_foresight)
 hidden_size1=450
 hidden_size2and3=200
 sampling=4
@@ -112,7 +112,7 @@ def evaluation(filenames, models, loss_fn):
         
         lr=models["optimizer"][i].param_groups[0]["lr"]
 
-        avg_loss,avg_r2,avg_poiss = test(filenames,model,loss_fn)
+        avg_loss,_,_ = test(filenames,model,loss_fn)
         #somehow find a way to incorporate other things in the decision
         if avg_loss<=min_loss:
             best_model=copy.deepcopy(model.state_dict())
@@ -196,7 +196,7 @@ if symmetric==1:
     usable_data, test_data = train_test_split(all_files,test_size=0.2)
 else:
     for filename in filenames:
-        X,Y = load_data_as_tensor_asimmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, foreward_foresight, sampling)
+        X,Y = load_data_as_tensor_asymmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, foreward_foresight, sampling)
         
         X,Y = X, Y = X.to(device), Y.to(device)
         all_files.append((X,Y))
@@ -229,7 +229,7 @@ pois_train_hist=[]
 
 print("time to instantiate model and data: ", time.time()-clock)
 old_data=None
-#TODO implementa il validation set e 
+
 for t in range(epochs):
     epoch_clock=time.time()
     print(f"Epoch {t+1}\n-------------------------------")

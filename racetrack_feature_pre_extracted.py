@@ -1,6 +1,7 @@
 import numpy as np
 import os
 from racetrack_library import load_racing_line_modified
+
 def racetrack_feature_pre_extracted(tracks_dir,racing_line_dir,filename,with_dists):
     track_file=os.path.join(tracks_dir,filename)
     rcl=os.path.join(racing_line_dir,filename)

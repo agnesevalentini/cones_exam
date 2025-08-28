@@ -208,6 +208,7 @@ def calc_intersect(A,B,C,D):
     
     return xt,yt,t
 
+#??? used only in add_extra_points_with_derivatives but it's useless
 def add_points(prec,p1,p2,succ):
     dx1,dy1=derivate(prec,p1,p2)
     dx2,dy2=derivate(p1,p2,succ)

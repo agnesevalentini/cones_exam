@@ -10,12 +10,8 @@ def correction_of_track(points):
     thetas=mpm.matrix([0]*len(points))
 
     #controllo se le normali si intreccianos
-    p=[]
-    for i in range(1,len(w_right_x)-1):
-        if intersect([w_right_x[i-1],w_right_y[i-1]],[w_left_x[i-1],w_left_y[i-1]],[w_right_x[i],w_right_y[i]],[w_left_x[i],w_left_y[i]]) or \
-           intersect([w_right_x[i],w_right_y[i]],[w_left_x[i],w_left_y[i]],[w_right_x[i+1],w_right_y[i+1]],[w_left_x[i+1],w_left_y[i+1]]):
-            p.append(i)
-    
+    p= [i for i in range(1,len(w_right_x)-1) if intersect([w_right_x[i-1],w_right_y[i-1]],[w_left_x[i-1],w_left_y[i-1]],[w_right_x[i],w_right_y[i]],[w_left_x[i],w_left_y[i]]) or \
+           intersect([w_right_x[i],w_right_y[i]],[w_left_x[i],w_left_y[i]],[w_right_x[i+1],w_right_y[i+1]],[w_left_x[i+1],w_left_y[i+1]])]
     if(p!=[]):
         
         problems=[p[0]]
