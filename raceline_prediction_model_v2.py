@@ -102,6 +102,7 @@ def evaluation(filenames, models, loss_fn):
             best_lr=lr
             print("new best model! ",avg_loss)
     for i in range(len(models["model"])):
+                        #change with lr if you want convergin learning rate
         learning_rate= starting_learning_rate*(1+0.25*(i-int(len(models["model"])/2))) # ex with 4 models starting_learning_rate * [0.5,0.75,1,1.25,1.5]
         models["model"][i].load_state_dict(best_model)
         models["optimizer"][i].param_groups[0]["lr"]=learning_rate
