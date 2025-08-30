@@ -1,6 +1,6 @@
 task: detect
 mode: train
-model: yolo11n.pt
+model: runs/detect/train/weights/last.pt
 data: fsoco_test.yaml
 epochs: 100
 time: null
@@ -11,7 +11,7 @@ save: true
 save_period: -1
 cache: false
 device: cpu
-workers: 8
+workers: 0
 project: null
 name: train
 exist_ok: false
@@ -24,7 +24,7 @@ single_cls: false
 rect: false
 cos_lr: false
 close_mosaic: 10
-resume: false
+resume: runs/detect/train/weights/last.pt
 amp: true
 fraction: 1.0
 profile: false
@@ -75,7 +75,7 @@ momentum: 0.937
 weight_decay: 0.0005
 warmup_epochs: 3.0
 warmup_momentum: 0.8
-warmup_bias_lr: 0.1
+warmup_bias_lr: 0.0
 box: 7.5
 cls: 0.5
 dfl: 1.5
@@ -102,4 +102,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: botsort.yaml
-save_dir: /home/agnese/runs/detect/train
+save_dir: /home/stefano/repositories/cones_exam/runs/detect/train
