@@ -102,9 +102,9 @@ def calculate_angle_between_lines(line1_points, line2_points):
     angle_degrees = np.degrees(angle_radians)
     
     if line2_points[0][1] < line2_points[1][1]:
-        return -angle_degrees
-    else:
         return angle_degrees
+    else:
+        return -angle_degrees
 
 cap = cv2.VideoCapture("FSAE2.mp4")
 
@@ -149,30 +149,39 @@ while cap.isOpened():
         lines.append([box_centers[0], box_centers[1]])
         i += 1
 
-    j = 0
-    while j < len(lines) - 1:
-        line1 = lines[j]
-        line2 = lines[j + 1]
-        #print(f"line1: {line1}, line2: {line2}")
-        angle = calculate_angle_between_lines(line1, line2)
-        #print(f"Angle between the two lines: {angle:.2f} degrees")
-        # Also add the angle value near the intersection of the lines (if they intersect)
-        # Calculate approximate midpoint between the two lines for display
-        mid_x = int((line1[0][0] + line1[1][0] + line2[0][0] + line2[1][0]) / 4)
-        mid_y = int((line1[0][1] + line1[1][1] + line2[0][1] + line2[1][1]) / 4)
-        cv2.putText(img, f"{angle:.5f} degrees", (mid_x, mid_y), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
-        j += 1
+    with open(f'output/results_{p}.txt', 'a') as f:
+        f.write(f"Number of blue cones: {len(blue_box_list)}\n")
+        f.write(f"Number of yellow cones: {len(yellow_box_list)}\n")
+        f.write(f"Number of lines: {len(lines)}\n")
+        
+        j = 0
+        while j < len(lines) - 1:
+            line1 = lines[j]
+            line2 = lines[j + 1]
+            #print(f"line1: {line1}, line2: {line2}")
+            angle = calculate_angle_between_lines(line1, line2)
+            #print(f"Angle between the two lines: {angle:.2f} degrees")
+            # Also add the angle value near the intersection of the lines (if they intersect)
+            # Calculate approximate midpoint between the two lines for display
+            mid_x = int((line1[0][0] + line1[1][0] + line2[0][0] + line2[1][0]) / 4)
+            mid_y = int((line1[0][1] + line1[1][1] + line2[0][1] + line2[1][1]) / 4)
+            cv2.putText(img, f"{angle:.5f} degrees", (mid_x, mid_y), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+            # Also add the angle value to the results file
+            f.write(f"Angle between line {j} and line {j + 1}: {angle:.5f} degrees\n")
+            j += 1
 
     cv2.imwrite(f"output/output_{p}.jpg", img)
     cv2.imshow("Frame", frame)
     cv2.waitKey(5)
-    for r in results:
-        #r.save_txt(f'output/results_{i}.txt')
-        for box in r.boxes:
-            with open(f'output/results_{p}.txt', 'a') as f:
-                f.write(f"Frame shape: {frame.shape}\n")
-                f.write(f"{box.xyxy.numpy()} {box.conf.numpy()} {box.cls.numpy()}\n")
+
+
+    # for r in results:
+    #     #r.save_txt(f'output/results_{i}.txt')
+    #     for box in r.boxes:
+    #         with open(f'output/results_{p}.txt', 'a') as f:
+    #             f.write(f"Frame shape: {frame.shape}\n")
+    #             f.write(f"{box.xyxy.numpy()} {box.conf.numpy()} {box.cls.numpy()}\n")
     p += 1
 
 cap.release()
