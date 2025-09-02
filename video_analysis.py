@@ -30,7 +30,8 @@ def plot_bboxes(results):
     boxes = results[0].boxes.xyxy.numpy().astype(np.int32) # bboxes
     for score, cls, bbox in zip(scores, classes, boxes): # loop over all bboxes
         class_label = names[cls] # class name
-        label = f"{class_label} : {score:0.2f}" # bbox label
+        #label = f"{class_label} : {score:0.2f}" # bbox label
+        label = f"{score:0.2f}"
         lbl_margin = 3 #label margin
 
         if class_label == 'blue_cone':
@@ -100,11 +101,14 @@ def calculate_angle_between_lines(line1_points, line2_points):
     angle_radians = np.arccos(abs(cos_angle))  # abs() to get the acute angle
     angle_degrees = np.degrees(angle_radians)
     
-    return angle_degrees
+    if line2_points[0][1] < line2_points[1][1]:
+        return -angle_degrees
+    else:
+        return angle_degrees
 
 cap = cv2.VideoCapture("FSAE2.mp4")
 
-model = YOLO("cones_exam/train/weights/best.pt")
+model = YOLO("train/weights/best.pt")
 
 #i: int = 0
 
