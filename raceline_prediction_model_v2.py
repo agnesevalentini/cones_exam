@@ -8,36 +8,44 @@ import numpy as np
 import collections
 from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2, load_data_as_tensor_asymmetric
 import time
-symmetric=0
-total_foresight=20 #basically f=total_foresight/2 NOTE must be even number
-foreward_foresight=15
-s=4
+symmetric=1
+also_current_position=1
+total_foresight=70 #basically f=total_foresight/2 NOTE must be even number if symmetric
+foreward_foresight=35
+
 with_thetas=0 #yes=1 no=0
 with_normal_lenght=0 #difference between v1 and v2
 input_size=(2+with_normal_lenght+with_thetas)*(total_foresight+1)
 hidden_size1=450
 hidden_size2and3=200
-sampling=4
-#note if you want to have only foreward samplings it must be 2*4
+total_sampling=4 #basically total_sampling
+#if you want it to be symmetric either put symmetric+1 or let it be (total_sampling)/2
+#if you want it to be only foreward (no current position) let it be sampling+1
 foreward_sampling=4
-output_size=(1+symmetric)*sampling+1
+output_size=total_sampling+(1*also_current_position)
 starting_learning_rate = 0.003 # learning rate
 epochs = 50
 number_of_models=4
 
+if(foreward_foresight>total_foresight or foreward_sampling>total_sampling):
+    raise("ERROR you can't have more view foreward then the total")
+elif(foreward_sampling!=total_sampling and also_current_position==0):
+    raise("ERROR you can't have only foreward sampling and no inplace if the toal sampling is not equal to foreward sampling")
+elif(symmetric==1 and also_current_position==0):
+    raise("ERROR you can't have only foreward sampling and no inplace if the foresight is symmetric")
 class trackNet(nn.Module):
-    def __init__(self,input_size, hidden_size1,hidden_size2and3, output_size):
-        
+    def __init__(self, input_size, hidden_size1, hidden_size2and3, output_size):
+
         super().__init__()
         self.flatten = nn.Flatten()
         self.model_stack=nn.Sequential(
         nn.Linear(input_size,hidden_size1,dtype=torch.float64),
         nn.Sigmoid(),
-        nn.Linear(hidden_size1,hidden_size2and3,dtype=torch.float64),
+        nn.Linear(hidden_size1, hidden_size2and3, dtype=torch.float64),
         nn.Sigmoid(),
-        nn.Linear(hidden_size2and3,hidden_size2and3,dtype=torch.float64),
+        nn.Linear(hidden_size2and3, hidden_size2and3, dtype=torch.float64),
         nn.Sigmoid(),
-        nn.Linear(hidden_size2and3,output_size,dtype=torch.float64),
+        nn.Linear(hidden_size2and3, output_size, dtype=torch.float64),
         nn.Hardsigmoid()
         )   
 
@@ -83,7 +91,7 @@ def train(files, models, loss_fn):
                 r2_obj.update(pred, Y)
                 r2=r2_obj.compute()
                 r2_obj.reset()
-                print(f"model {i+1} loss: {loss:>7f}, r2: {r2}  [{current:>5d}/{len(files):>5d}], mean time for exec: {tot_time/(len(models["model"])*(batch)+i+1)}")
+                print(f"model {i+1} loss: {loss:>7f}, r2: {r2}  [{current:>5d}/{len(files):>5d}], mean time for exec: {tot_time/(len(models['model'])*(batch)+i+1)}")
     
     return tot_time   
 
@@ -96,7 +104,7 @@ def evaluation(filenames, models, loss_fn):
         
         lr=models["optimizer"][i].param_groups[0]["lr"]
 
-        avg_loss,avg_r2,avg_poiss = test(filenames,model,loss_fn)
+        avg_loss,_,_ = test(filenames,model,loss_fn)
         #somehow find a way to incorporate other things in the decision
         if avg_loss<=min_loss:
             best_model=copy.deepcopy(model.state_dict())
@@ -176,7 +184,7 @@ all_files=[]
 if symmetric==1:
     print("symmetric data")
     for filename in filenames:
-        X,Y = load_data_as_tensor_v2(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, sampling)
+        X,Y = load_data_as_tensor_v2(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, total_sampling)
         
         X,Y = X, Y = X.to(device), Y.to(device)
         all_files.append((X,Y))
@@ -184,7 +192,7 @@ if symmetric==1:
 else:
     print("asymmetric data")
     for filename in filenames:
-        X,Y = load_data_as_tensor_asymmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, foreward_foresight, output_size,foreward_sampling)
+        X,Y = load_data_as_tensor_asymmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, foreward_foresight, total_sampling, foreward_sampling)
         
         X,Y = X, Y = X.to(device), Y.to(device)
         all_files.append((X,Y))
@@ -204,7 +212,7 @@ split_indexs=np.split(all_indexes,n_splits)
 # print(len(usable_data[split_indexs[0][0]]))# single track with both X and Y
 # print(len(usable_data[split_indexs[0][0]][0]))# single track all Xs 
 # print(len(usable_data[split_indexs[0][0]][1]))# single track all Ys 
-print(len(usable_data[split_indexs[0][0]][0][0]))#single data point
+#print(len(usable_data[split_indexs[0][0]][1][0]))#single data point
 
 
 loss_hist=[]

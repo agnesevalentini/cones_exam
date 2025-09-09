@@ -9,22 +9,33 @@ import collections
 from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2, load_data_as_tensor_asymmetric
 import time
 symmetric=0
-total_foresight=20 #basically f=total_foresight/2 NOTE must be even number
-foreward_foresight=15
-s=4
+also_current_position=0
+total_foresight=20 #basically f=total_foresight/2 NOTE must be even number if symmetric
+foreward_foresight=20
+
 with_thetas=0 #yes=1 no=0
 with_normal_lenght=0 #difference between v1 and v2
-input_size=(2+with_normal_lenght+with_thetas)*(total_foresight)
+input_size=(2+with_normal_lenght+with_thetas)*(total_foresight+1)
 hidden_size1=450
 hidden_size2and3=200
-sampling=4
-output_size=(1+symmetric)*sampling+1
+total_sampling=4 #basically total_sampling
+#if you want it to be symmetric either put symmetric+1 or let it be (total_sampling)/2
+#if you want it to be only foreward (no current position) let it be sampling+1
+foreward_sampling=4
+output_size=total_sampling+(1*also_current_position)
 starting_learning_rate = 0.003 # learning rate
 epochs = 50
 number_of_models=4
 
+if(foreward_foresight>total_foresight or foreward_sampling>total_sampling):
+    raise("ERROR you can't have more view foreward then the total")
+elif(foreward_sampling!=total_sampling and also_current_position==0):
+    raise("ERROR you can't have only foreward sampling and no inplace if the toal sampling is not equal to foreward sampling")
+elif(symmetric==1 and also_current_position==0):
+    raise("ERROR you can't have only foreward sampling and no inplace if the foresight is symmetric")
 class TrackNetConditioned(nn.Module):
     def __init__(self, input_size, hidden_size1, hidden_size2and3, output_size):
+
         super().__init__()
         
         # main path
@@ -77,14 +88,14 @@ def train(files, models, loss_fn):
             model.train()
             
             #print(batch)
-            X,Y = file
+            X,Y,current_positions = file
             track_length=X.shape[0]
             #print(X.shape, Y.shape)
 
             t_batch=time.time()
             
             batch_X = X.view(track_length, -1)   # shape: (track_length, input_size * n_features)
-            pred = model(batch_X, Y[:,sampling*symmetric])                # shape: (track_length, output_size)
+            pred = model(batch_X, current_positions)                # shape: (track_length, output_size)
             loss = loss_fn(pred, Y)
 
             # Backpropagation
@@ -99,7 +110,7 @@ def train(files, models, loss_fn):
                 r2_obj.update(pred, Y)
                 r2=r2_obj.compute()
                 r2_obj.reset()
-                print(f"model {i+1} loss: {loss:>7f}, r2: {r2}  [{current:>5d}/{len(files):>5d}], mean time for exec: {tot_time/(len(models["model"])*(batch)+i+1)}")
+                print(f"model {i+1} loss: {loss:>7f}, r2: {r2}  [{current:>5d}/{len(files):>5d}], mean time for exec: {tot_time/(len(models['model'])*(batch)+i+1)}")
     
     return tot_time   
 
@@ -120,6 +131,7 @@ def evaluation(filenames, models, loss_fn):
             best_lr=lr
             print("new best model! ",avg_loss)
     for i in range(len(models["model"])):
+                        #change with lr if you want convergin learning rate
         learning_rate= starting_learning_rate*(1+0.25*(i-int(len(models["model"])/2))) # ex with 4 models starting_learning_rate * [0.5,0.75,1,1.25,1.5]
         models["model"][i].load_state_dict(best_model)
         models["optimizer"][i].param_groups[0]["lr"]=learning_rate
@@ -135,10 +147,11 @@ def test(files, model, loss_fn):
     with torch.no_grad():
         for file in files:
             # carica i dati e li porta sul device corretto
-            X,Y = file
+            X,Y,current_positions = file
 
             # forward
-            pred = model(X.view(X.shape[0], -1), Y[:,sampling*symmetric])    # appiattisce input se necessario 
+            pred = model(X.view(X.shape[0], -1),current_positions)    # appiattisce input se necessario 
+
             # calcola loss
             loss = loss_fn(pred, Y)
             total_loss += loss.item()
@@ -188,18 +201,23 @@ r2_obj=R2Score().to(device)
 
 all_files=[]
 if symmetric==1:
+    print("symmetric data")
     for filename in filenames:
-        X,Y = load_data_as_tensor_v2(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, sampling)
+        X,Y = load_data_as_tensor_v2(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, total_sampling)
         
         X,Y = X, Y = X.to(device), Y.to(device)
-        all_files.append((X,Y))
+        current_positions=Y[:,total_sampling-foreward_sampling].detach().clone()
+        all_files.append((X,Y,current_positions))
     usable_data, test_data = train_test_split(all_files,test_size=0.2)
 else:
+    print("asymmetric data")
     for filename in filenames:
-        X,Y = load_data_as_tensor_asymmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, foreward_foresight, sampling)
+        X,Y = load_data_as_tensor_asymmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, foreward_foresight, total_sampling, foreward_sampling)
         
         X,Y = X, Y = X.to(device), Y.to(device)
-        all_files.append((X,Y))
+        current_positions=Y[:,total_sampling-foreward_sampling].detach().clone()
+        Y=Y[:,(1-also_current_position):]
+        all_files.append((X,Y,current_positions))
     usable_data, test_data = train_test_split(all_files,test_size=0.2)
 
 #splitting data, insert in loop to change every epoch

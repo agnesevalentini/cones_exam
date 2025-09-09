@@ -28,7 +28,7 @@ def mark_min(ax, x, y, label):
 
 
 # Carica i dati dal file CSV (senza header)
-model_dir="data/v2/"
+model_dir="data/v3/"
 datafilenames =np.array( [f for f in os.listdir(model_dir) if os.path.isfile(os.path.join(model_dir, f)) and f.endswith(".csv")])
 datafilenames=sorted(datafilenames)
 for i in range(0,len(datafilenames),2):

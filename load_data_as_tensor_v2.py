@@ -3,7 +3,9 @@ from racetrack_feature_pre_extracted import racetrack_feature_pre_extracted
 import numpy as np
 import torch
 import time
-def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,sampling):
+
+def load_data_as_np(tracks_dir,racing_line_dir,filename,with_thetas,with_dists):
+
     if tracks_dir=="tracks/train/featureExtracted":
         res=racetrack_feature_pre_extracted(tracks_dir,racing_line_dir,filename,with_dists) 
     else:
@@ -21,69 +23,13 @@ def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,with_dis
         features = np.array((l, alpha,thetas))
     else: 
         features = np.array((l, alpha))
-    #print(features.shape)
 
-    track_length=len(l)
-    # i need to know how many track points do i need to know before and after the normal we are focussed on
-    half_in = total_foresight //2
-    half_out = sampling
+    return features, raceline, len(l)
 
-    #crea una lista di indici di tutt i punti
-    centers = np.arange(track_length)
-
+def _to_tensor(features, raceline,centers,back_foresight,foreward_foresight,back_sampling,foreward_sampling, track_length):
     #crea gli indici per ogni training sample, ovvero "puntocentrale" e indici precedenti e successivi:
     # indici input: (track_length, input_size)
-    input_idx = (centers[:, None] + np.arange(-half_in, half_in+1)) % track_length
-    #print("input_idx",input_idx.shape)
-
-    #come sopra
-    # indici output: (track_length, output_size)
-    output_idx = (centers[:, None] + np.arange(-half_out, half_out+1)) % track_length
-    #print("output_idx",output_idx.shape)
-    
-    # costruisci le feature
-    #features = [l, alpha]  # aggiungi thetas se serve
-    X = np.stack([np.take(f, input_idx) for f in features], axis=-1)   # shape (track_length, input_size, n_features)
-    # costruisci i target
-    Y = np.take(raceline, output_idx)    # shape (track_length, output_size)
-    # converti in tensori
-
-    X = torch.tensor(X, dtype=torch.float64)
-    Y = torch.tensor(Y, dtype=torch.float64)
-    
-    return X,Y
-
-def load_data_as_tensor_asymmetric(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,foreward_foresight,total_sampling, foreward_sampling):
-    if tracks_dir=="tracks/train/featureExtracted":
-        res=racetrack_feature_pre_extracted(tracks_dir,racing_line_dir,filename,with_dists) 
-    else:
-        res=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_dists)
-    if(with_dists!=0):
-        l,alpha,thetas,dists,raceline=res
-    else:
-        l,alpha,thetas,raceline=res
-    # depends if we know wehter there are modified normals in the tracks
-    if with_dists==1 and with_thetas==1:
-        features = np.array((l, alpha,dists,thetas))
-    elif with_dists==1 and with_thetas==0:
-        features = np.array((l,alpha,dists))
-    elif with_dists==0 and with_thetas==1:
-        features = np.array((l, alpha,thetas))
-    else: 
-        features = np.array((l, alpha))
-    #print(features.shape)
-
-    track_length=len(l)
-    # i need to know how many track points do i need to know before and after the normal we are focussed on
-    back = total_foresight-foreward_foresight
-    back_sampling=total_sampling-foreward_sampling
-
-    #crea una lista di indici di tutt i punti
-    centers = np.arange(track_length)
-
-    #crea gli indici per ogni training sample, ovvero "puntocentrale" e indici precedenti e successivi:
-    # indici input: (track_length, input_size)
-    input_idx = (centers[:, None] + np.arange(-back, foreward_foresight+1)) % track_length
+    input_idx = (centers[:, None] + np.arange(-back_foresight, foreward_foresight+1)) % track_length
     #print("input_idx",input_idx.shape)
 
     #come sopra
@@ -94,7 +40,7 @@ def load_data_as_tensor_asymmetric(tracks_dir,racing_line_dir,filename,with_thet
     # costruisci le feature
     #features = [l, alpha]  # aggiungi thetas se serve
     X = np.stack([np.take(f, input_idx) for f in features], axis=-1)   # shape (track_length, input_size, n_features)
-    # costruisci i target
+    # costruisci i targetf
     Y = np.take(raceline, output_idx)    # shape (track_length, output_size)
     # converti in tensori
 
@@ -103,57 +49,60 @@ def load_data_as_tensor_asymmetric(tracks_dir,racing_line_dir,filename,with_thet
     
     return X,Y
 
-
-def load_just_curves(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,foreward_foresight,sampling):
-    if tracks_dir=="tracks/train/featureExtracted":
-        res=racetrack_feature_pre_extracted(tracks_dir,racing_line_dir,filename,with_dists) 
-    else:
-        res=racetrack_feature_extraction(tracks_dir,racing_line_dir,filename,with_dists)
-    if(with_dists!=0):
-        l,alpha,thetas,dists,raceline=res
-    else:
-        l,alpha,thetas,raceline=res
-    # depends if we know wehter there are modified normals in the tracks
-    if with_dists==1 and with_thetas==1:
-        features = np.array((l, alpha,dists,thetas))
-    elif with_dists==1 and with_thetas==0:
-        features = np.array((l,alpha,dists))
-    elif with_dists==0 and with_thetas==1:
-        features = np.array((l, alpha,thetas))
-    else: 
-        features = np.array((l, alpha))
-
-    track_length=len(l)
-    # i need to know how many track points do i need to know before and after the normal we are focussed on
-    back = total_foresight-foreward_foresight
+def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,sampling):
     
+    features,raceline,track_length=load_data_as_np(tracks_dir,racing_line_dir,filename,with_thetas,with_dists)
+    #print(features.shape)
+
+    # i need to know how many track points do i need to know before and after the normal we are focussed on
+    half_in = total_foresight //2
+    half_out = sampling // 2
 
     #crea una lista di indici di tutt i punti
-    c=[]
-    for i,a in enumerate(alpha):
-        if a>5:
-            c.append(i)
     centers = np.arange(track_length)
 
-    #crea gli indici per ogni training sample, ovvero "puntocentrale" e indici precedenti e successivi:
-    # indici input: (track_length, input_size)
-    input_idx = (centers[:, None] + np.arange(-back, foreward_foresight+1)) % track_length
-    #print("input_idx",input_idx.shape)
-
-    #come sopra
-    # indici output: (track_length, output_size)
-    output_idx = (centers[:, None] + np.arange(sampling+1)) % track_length
-    #print("output_idx",output_idx.shape)
+    X,Y = _to_tensor(features,raceline,centers,half_in,half_in,half_out,half_out,track_length)
     
-    # costruisci le feature
-    #features = [l, alpha]  # aggiungi thetas se serve
-    X = np.stack([np.take(f, input_idx) for f in features], axis=-1)   # shape (track_length, input_size, n_features)
-    # costruisci i target
-    Y = np.take(raceline, output_idx)    # shape (track_length, output_size)
-    # converti in tensori
+    return X,Y
 
-    X = torch.tensor(X, dtype=torch.float64)
-    Y = torch.tensor(Y, dtype=torch.float64)
+def load_data_as_tensor_asymmetric(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,foreward_foresight,total_sampling, foreward_sampling):
+    
+    features,raceline,track_length=load_data_as_np(tracks_dir,racing_line_dir,filename,with_thetas,with_dists)
+    #print(features.shape)
+
+
+    # i need to know how many track points do i need to know before and after the normal we are focussed on
+    back_foresight = total_foresight-foreward_foresight
+    back_sampling = total_sampling-foreward_sampling
+
+    #crea una lista di indici di tutt i punti
+    centers = np.arange(track_length)
+
+    X,Y = _to_tensor(features,raceline,centers,back_foresight,foreward_foresight,back_sampling,foreward_sampling,track_length)
+
+    return X,Y
+
+
+def load_just_curves(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,total_foresight,foreward_foresight,total_sampling,foreward_sampling):
+    
+    features,raceline,track_length=load_data_as_np(tracks_dir,racing_line_dir,filename,with_thetas,with_dists)
+
+    
+    # i need to know how many track points do i need to know before and after the normal we are focussed on
+    back = total_foresight-foreward_foresight
+
+    #crea una lista di indici di tutt i punti
+    centers=[]
+    for i,a in enumerate(features[1]):
+        if a>1:
+            centers.append(i)
+
+
+    # i need to know how many track points do i need to know before and after the normal we are focussed on
+    back_foresight = total_foresight-foreward_foresight
+    back_sampling = total_sampling-foreward_sampling
+
+    X,Y =_to_tensor(features,raceline,centers,back_foresight,foreward_foresight,back_foresight,foreward_sampling,back_sampling)
     
     return X,Y
 
