@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import csv
 from ultralytics import YOLO
 
 
@@ -30,8 +31,7 @@ def plot_bboxes(results):
     boxes = results[0].boxes.xyxy.numpy().astype(np.int32) # bboxes
     for score, cls, bbox in zip(scores, classes, boxes): # loop over all bboxes
         class_label = names[cls] # class name
-        #label = f"{class_label} : {score:0.2f}" # bbox label
-        label = f"{score:0.2f}"
+        label = f"{score:0.2f}" # bbox label
         lbl_margin = 3 #label margin
 
         if class_label == 'blue_cone':
@@ -74,6 +74,8 @@ def calculate_angle_between_lines(line1_points, line2_points):
     Returns:
         Angle in degrees between the two lines (0-90 degrees)
     """
+
+    print(f"line1_points: {line1_points}, line2_points: {line2_points}")
     # Calculate direction vectors for both lines
     vector1 = np.array([line1_points[1][0] - line1_points[0][0], 
                        line1_points[1][1] - line1_points[0][1]])
@@ -100,7 +102,7 @@ def calculate_angle_between_lines(line1_points, line2_points):
     # Calculate the angle in radians and convert to degrees
     angle_radians = np.arccos(abs(cos_angle))  # abs() to get the acute angle
     angle_degrees = np.degrees(angle_radians)
-    
+
     if line2_points[0][1] < line2_points[1][1]:
         return angle_degrees
     else:
@@ -108,7 +110,7 @@ def calculate_angle_between_lines(line1_points, line2_points):
 
 cap = cv2.VideoCapture("FSAE2.mp4")
 
-model = YOLO("train/weights/best.pt")
+model = YOLO("cones_exam/train/weights/best.pt")
 
 #i: int = 0
 
@@ -119,7 +121,7 @@ while cap.isOpened():
     if not ret:
         break
 
-    results = model.predict(source=frame, save=True, conf=0.8)
+    results = model.predict(source=frame, save=True, conf=0.7)
     
     #cv2.imwrite(f"output/frame_{i}.jpg", frame)
 
@@ -149,11 +151,27 @@ while cap.isOpened():
         lines.append([box_centers[0], box_centers[1]])
         i += 1
 
-    with open(f'output/results_{p}.txt', 'a') as f:
-        f.write(f"Number of blue cones: {len(blue_box_list)}\n")
-        f.write(f"Number of yellow cones: {len(yellow_box_list)}\n")
-        f.write(f"Number of lines: {len(lines)}\n")
-        
+
+    with open(f'output/results_{p}.txt', 'w') as f:
+        writer = csv.writer(f)
+
+        writer.writerow(["line_width", "angle", "correction", "distance_between_normals"])
+        writer.writerow([5.0, 0.0, 0.0, 5.0])  # First line with fake angle 0.0
+
+        pt1 = (483, 494)
+        pt2 = (835, 493)
+        cv2.line(img, pt1, pt2, (0, 255, 0), 2)
+
+        line0 = [pt1, pt2]
+        line2 = lines[0]
+
+        angle = calculate_angle_between_lines(line0, line2)
+
+        cv2.putText(img, f"{angle:.5f} degrees", (pt1[0], pt1[1] - 10), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+
+        writer.writerow([5.0, angle, 0.0, 5.0])
+
         j = 0
         while j < len(lines) - 1:
             line1 = lines[j]
@@ -168,8 +186,11 @@ while cap.isOpened():
             cv2.putText(img, f"{angle:.5f} degrees", (mid_x, mid_y), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
             # Also add the angle value to the results file
-            f.write(f"Angle between line {j} and line {j + 1}: {angle:.5f} degrees\n")
+            #f.write(f"Angle between line {j} and line {j + 1}: {angle:.5f} degrees\n")
+            writer.writerow([5.0, angle, 0.0, 5.0])  # Example values
             j += 1
+
+    
 
     cv2.imwrite(f"output/output_{p}.jpg", img)
     cv2.imshow("Frame", frame)

@@ -11,10 +11,10 @@
 #     └── coco8 ← downloads here (1 MB)
 
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
-path: amz # dataset root dir, example with just 'amz' as directory
-train: images # train images (relative to 'path') 4 images
-val: images # val images (relative to 'path') 4 images
-test: # test images (optional)
+path: yolo # dataset root dir, example with just 'amz' as directory
+train: images/train # train images (relative to 'path') 4 images
+val: images/val # val images (relative to 'path') 4 images
+test: #images/test  # test images (optional)
 
 # Classes
 names:
@@ -25,7 +25,6 @@ names:
     #3: seg_blue_cone
     #4: orange_cone
     #5: seg_orange_cone
-    #6: large_orange_cone
     #7: seg_large_orange_cone
     #8: unknown_cone
     #9: seg_unknown_cone
