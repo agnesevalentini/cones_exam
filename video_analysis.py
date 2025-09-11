@@ -136,6 +136,8 @@ hidden_size2and3=200
 #if you want it to be only foreward (no current position) let it be sampling+1
 output_size=total_sampling+(1*also_current_position)
 racetrack_model=TrackNetConditioned(input_size,hidden_size1,hidden_size2and3,output_size)
+racetrack_model.load_state_dict(torch.load("track_model_very_small.pt", map_location="cpu"))
+
 ##############
 
 

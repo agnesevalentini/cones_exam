@@ -107,7 +107,7 @@ if __name__ == "__main__":
     loss_fn = nn.HuberLoss()
 
     model = TrackNetConditioned(input_size, hidden_size1, hidden_size2and3, output_size).to(device)
-    model.load_state_dict(torch.load("small_track_model_using_only_predict_slower_transformation_of_data.pt", map_location=device))
+    model.load_state_dict(torch.load("track_model_very_small.pt", map_location=device))
 
     poiss_obj=TweedieDevianceScore(power=0).to(device)
     r2_obj=R2Score().to(device)
