@@ -2,6 +2,7 @@ import os
 import matplotlib.pyplot as plt
 #import numpy as np
 import mpmath as mpm
+import numpy as np
 def load_track_points(track_file):
     with open(track_file, "r") as f:
         lines = f.readlines()
@@ -109,6 +110,82 @@ def plot_tracks(axs,left_x,left_y,centerline,right_x,right_y,raceline, filename)
         xl, yl = left_x[i], left_y[i]
         axs.plot([xr, xl], [yr, yl], 'g--', linewidth=0.5)
         axs.plot([centerline[i,0], xl], [centerline[i,1], yl], 'r--', linewidth=0.5)
+
+def plot_tracks_from_features(axs,l, alpha, distances, raceline_on_normals, save_pred_for_plot, filename):
+    
+    # Ricostruisci la centerline dai dati: l (larghezza), distances (distanze tra punti), alpha (angoli tra segmenti)
+    num_points = len(l)
+    centerline = np.zeros((num_points, 2), dtype=float)
+    normals = np.zeros((num_points, 2), dtype=float)
+
+    # Primo punto al centro (0,0), prima normale arbitraria (verso l'alto)
+    centerline[0] = [0.0, 0.0]
+    normals[0] = [0.0, 1.0]
+
+    # Ricostruzione sequenziale dei punti e delle normali
+    for i in range(1, num_points):
+        # Ruota la normale precedente di alpha[i-1] (in gradi)
+        angle_rad = float(alpha[i-1]) * np.pi / 180.0
+        c, s = np.cos(angle_rad), np.sin(angle_rad)
+        n_prev = normals[i-1]
+        n_new = np.array([
+            c * n_prev[0] - s * n_prev[1],
+            s * n_prev[0] + c * n_prev[1]
+        ])
+        n_new /= np.linalg.norm(n_new)
+        normals[i] = n_new
+
+        # Direzione tangente (perpendicolare alla normale)
+        tangent = np.array([normals[i][1], -normals[i][0]])
+        tangent /= np.linalg.norm(tangent)
+
+        # Calcola il nuovo punto della centerline
+        centerline[i] = centerline[i-1] + float(distances[i-1]) * tangent
+
+    # Calcola i bordi sinistro e destro
+    left_x, left_y, right_x, right_y = [], [], [], []
+    for i in range(num_points):
+        n = normals[i]
+        # Bordo sinistro
+        left = centerline[i] + 0.5 * float(l[i]) * n
+        left_x.append(left[0])
+        left_y.append(left[1])
+        # Bordo destro
+        right = centerline[i] - 0.5 * float(l[i]) * n
+        right_x.append(right[0])
+        right_y.append(right[1])
+
+    # Calcola la posizione 2D della racing line come punto interpolato tra right e left
+    raceline_Y = []
+    for i in range(num_points):
+        t = float(raceline_on_normals[i])  # t in [0,1]
+        rx = right_x[i] + t * (left_x[i] - right_x[i])
+        ry = right_y[i] + t * (left_y[i] - right_y[i])
+        raceline_Y.append([rx, ry])
+
+    raceline_pred = []
+    for i in range(num_points):
+        t = float(save_pred_for_plot[i])  # t in [0,1]
+        rx = right_x[i] + t * (left_x[i] - right_x[i])
+        ry = right_y[i] + t * (left_y[i] - right_y[i])
+        raceline_pred.append([rx, ry])
+
+    centerline = np.array(centerline)
+    raceline_Y = np.array(raceline_Y)
+    raceline_pred = np.array(raceline_pred)
+
+    axs.plot(centerline[:,0], centerline[:,1], label=f"{filename} centerline", color='gray', linestyle='--')
+    axs.plot(right_x, right_y, 'c', label="Metodo3 Right")
+    axs.plot(raceline_Y[:,0], raceline_Y[:,1], 'y-', label="best racing line")
+    axs.plot(raceline_pred[:,0], raceline_pred[:,1], 'b-', label="predicted racing line")
+
+    axs.plot(left_x, left_y, 'm', label="Metodo3 Left")
+    for i in range(len(left_x)):
+        xr, yr = right_x[i], right_y[i]
+        xl, yl = left_x[i], left_y[i]
+        axs.plot([xr, xl], [yr, yl], 'g--', linewidth=0.5)
+        axs.plot([centerline[i,0], xl], [centerline[i,1], yl], 'r--', linewidth=0.5)
+
 
 def curva_direzione(prev_point, curr_point, next_point):
     # Vettore dal punto precedente al corrente

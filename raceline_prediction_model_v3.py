@@ -10,22 +10,25 @@ from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2
 import time
 symmetric=0
 also_current_position=0
-total_foresight=20 #basically f=total_foresight/2 NOTE must be even number if symmetric
-foreward_foresight=20
+
+
+total_foresight=3 #basically f=total_foresight/2 NOTE must be even number if symmetric
+foreward_foresight=3
+total_sampling=2 #basically total_sampling
+foreward_sampling=2
 
 with_thetas=0 #yes=1 no=0
-with_normal_lenght=0 #difference between v1 and v2
-input_size=(2+with_normal_lenght+with_thetas)*(total_foresight+1)
+with_normal_dist=0 #difference between v1 and v2
+input_size=(2+with_normal_dist+with_thetas)*(total_foresight+1)
 hidden_size1=450
 hidden_size2and3=200
-total_sampling=4 #basically total_sampling
 #if you want it to be symmetric either put symmetric+1 or let it be (total_sampling)/2
 #if you want it to be only foreward (no current position) let it be sampling+1
-foreward_sampling=4
 output_size=total_sampling+(1*also_current_position)
 starting_learning_rate = 0.003 # learning rate
 epochs = 50
 number_of_models=4
+
 
 if(foreward_foresight>total_foresight or foreward_sampling>total_sampling):
     raise("ERROR you can't have more view foreward then the total")
@@ -73,13 +76,27 @@ class TrackNetConditioned(nn.Module):
         logits = self.out(self.fc4(h))
         return logits
 
+def markovian_predictions(model,X,current_positions,Y):
+    current_position=current_positions[0]
+    pred = torch.zeros_like(Y)
+    save_pred_for_plot = torch.zeros_like(current_positions)
+    for i in range(len(X)):
+    # forward
+            
+        pred_single = model(X[i].flatten(), current_position)    # appiattisce input se necessario  #change between current_positions[i] and current_position 
+        pred[i] = pred_single
+        current_position = pred_single[0].detach().clone()
+        save_pred_for_plot[i]=pred_single[0].detach().clone()
+
 def train(files, models, loss_fn):
     #il singolo filename è una batch di training data
     #se faccio questo vuol dire che in pratica lo stesso dato deve essere utilizzato come lable su neuroni diversi
     tot_time=0
 
-    
+    best_pred_list=[]
     for batch, file in enumerate(files):
+        best_loss=np.inf
+        best_pred=None
         for i in range(len(models["model"])):
             model=models["model"][i]
             model.train()
@@ -97,6 +114,9 @@ def train(files, models, loss_fn):
             batch_X = X.view(track_length, -1)   # shape: (track_length, input_size * n_features)
             pred = model(batch_X, current_positions)                # shape: (track_length, output_size)
             loss = loss_fn(pred, Y)
+            if best_loss>loss:
+                best_loss=loss
+                best_pred=pred[:,total_sampling-foreward_sampling].detach().clone()
 
             # Backpropagation
             loss.backward()
@@ -111,8 +131,8 @@ def train(files, models, loss_fn):
                 r2=r2_obj.compute()
                 r2_obj.reset()
                 print(f"model {i+1} loss: {loss:>7f}, r2: {r2}  [{current:>5d}/{len(files):>5d}], mean time for exec: {tot_time/(len(models['model'])*(batch)+i+1)}")
-    
-    return tot_time   
+        best_pred_list.append(best_pred)
+    return tot_time, best_pred_list   
 
 def evaluation(filenames, models, loss_fn):
     min_loss=np.inf
@@ -123,7 +143,7 @@ def evaluation(filenames, models, loss_fn):
         
         lr=models["optimizer"][i].param_groups[0]["lr"]
 
-        avg_loss,_,_ = test(filenames,model,loss_fn)
+        avg_loss,_,_,best_pred_list = test(filenames,model,loss_fn)
         #somehow find a way to incorporate other things in the decision
         if avg_loss<=min_loss:
             best_model=copy.deepcopy(model.state_dict())
@@ -137,7 +157,7 @@ def evaluation(filenames, models, loss_fn):
         models["optimizer"][i].param_groups[0]["lr"]=learning_rate
 
 
-    return best_model, min_loss
+    return best_model, min_loss,best_pred_list
 
 def test(files, model, loss_fn):
     model.eval()
@@ -145,6 +165,7 @@ def test(files, model, loss_fn):
     total_r2 = 0.0
     total_poiss = 0.0
     with torch.no_grad():
+        best_pred_list=[]
         for file in files:
             # carica i dati e li porta sul device corretto
             X,Y,current_positions = file
@@ -160,13 +181,14 @@ def test(files, model, loss_fn):
             r2_obj.reset()
             total_poiss+=poiss_obj(pred,Y)
             poiss_obj.reset()
-            
+
+            best_pred_list.append(pred[:,total_sampling-foreward_sampling])
 
     # media sulla lunghezza del test set
     avg_loss = total_loss / len(files)
     avg_r2=total_r2/len(files)
     avg_poiss=total_poiss/len(files)
-    return avg_loss,avg_r2,avg_poiss
+    return avg_loss,avg_r2,avg_poiss,best_pred_list
 
 clock=time.time()
 tracks_dir = "tracks/train/featureExtracted"
@@ -203,7 +225,7 @@ all_files=[]
 if symmetric==1:
     print("symmetric data")
     for filename in filenames:
-        X,Y = load_data_as_tensor_v2(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, total_sampling)
+        X,Y = load_data_as_tensor_v2(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_dist, total_foresight, total_sampling)
         
         X,Y = X, Y = X.to(device), Y.to(device)
         current_positions=Y[:,total_sampling-foreward_sampling].detach().clone()
@@ -212,7 +234,7 @@ if symmetric==1:
 else:
     print("asymmetric data")
     for filename in filenames:
-        X,Y = load_data_as_tensor_asymmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_lenght, total_foresight, foreward_foresight, total_sampling, foreward_sampling)
+        X,Y = load_data_as_tensor_asymmetric(tracks_dir, racing_line_dir, filename, with_thetas, with_normal_dist, total_foresight, foreward_foresight, total_sampling, foreward_sampling)
         
         X,Y = X, Y = X.to(device), Y.to(device)
         current_positions=Y[:,total_sampling-foreward_sampling].detach().clone()
@@ -247,7 +269,8 @@ pois_train_hist=[]
 
 print("time to instantiate model and data: ", time.time()-clock)
 old_data=None
-
+overall_best_model=None
+overall_best_loss=np.inf
 for t in range(epochs):
     epoch_clock=time.time()
     print(f"Epoch {t+1}\n-------------------------------")
@@ -262,14 +285,27 @@ for t in range(epochs):
     validation_data=[usable_data[i] for i in split_indexs[t%n_splits]]
     
     
-    tot_time_predict=train(train_data,net,loss_fn)
+    tot_time_predict, new_current_positions_train=train(train_data,net,loss_fn)
     
-    best_model_weights, best_loss=evaluation(validation_data,net,loss_fn)
+    for i,idx in enumerate(train_idx):
+        # Usare Teacher Forcing Ratio per la combinazione, riduco ad ogni epoca quanto dell'informazione viene dalle label e quanto dalle precedenti predizioni
+        usable_data[idx] = (usable_data[idx][0], usable_data[idx][1], ((1-(min(t/epochs,1))) * usable_data[idx][2] + (min(t/epochs,1)) * new_current_positions_train[i]).detach().clone())
+        
+
+
+    best_model_weights, best_loss,new_current_positions_eval=evaluation(validation_data,net,loss_fn)
+    for i,idx in enumerate(split_indexs[t%n_splits]):
+        usable_data[idx]= (usable_data[idx][0], usable_data[idx][1], ((1-(min(t/epochs,1))) * usable_data[idx][2] + (min(t/epochs,1)) * new_current_positions_eval[i]).detach().clone())
     
+    if overall_best_loss>best_loss:
+        overall_best_loss=best_loss
+        overall_best_model=best_model_weights
     test_clock=time.time() 
     
-    avg_loss,r2,poiss=test(test_data,net["model"][0],loss_fn)
-    avg_loss_train,r2_train,poiss_train=test(train_data,net["model"][0],loss_fn)
+    avg_loss,r2,poiss,new_current_positions_test=test(test_data,net["model"][0],loss_fn)
+    for idx in range(len(test_data)):
+        test_data[idx]= (test_data[idx][0], test_data[idx][1], ((1-(min(t/epochs,1))) * test_data[idx][2] + (min(t/epochs,1)) * new_current_positions_test[idx]).detach().clone())
+    avg_loss_train,r2_train,poiss_train,_=test(train_data,net["model"][0],loss_fn)
 
     print(f"Test Error:        Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, mean poisson deviance: {poiss:>8f}")
     print(f"Train Error:       Avg loss: {avg_loss_train:>8f}, r2: {r2_train:>8f}, mean poisson deviance: {poiss_train:>8f}")
@@ -301,6 +337,8 @@ pois_hist = [t.detach().cpu().item() for t in pois_hist]
 r2_train_hist   = [t.detach().cpu().item() for t in r2_train_hist]
 pois_train_hist = [t.detach().cpu().item() for t in pois_train_hist]
 
-torch.save(net["model"][0].state_dict(), "track_model.pt")
-np.savetxt("20_total_foresight_asymetric_15_select_best_model_and_lr_stable_no_dist_4_models_lr0,003test.csv", np.column_stack((loss_hist,r2_hist,pois_hist)), fmt="%.6f", delimiter=",")
-np.savetxt("20_total_foresight_asymetric_15_select_best_model_and_lr_stable_no_dist_4_models_lr0,003train.csv", np.column_stack((loss_train_hist,r2_train_hist,pois_train_hist)), fmt="%.6f", delimiter=",")
+#track_model_using_only_predict.pt = total_foresight=foreward_foresight=20 total_sampling=foreward_sampling=4
+
+torch.save(overall_best_model, "small_track_model_using_only_predict_slower_transformation_of_data.pt")
+np.savetxt("3_total_foresight_asymetric_2_select_best_model_and_lr_stable_no_dist_4_models_lr0,003test.csv", np.column_stack((loss_hist,r2_hist,pois_hist)), fmt="%.6f", delimiter=",")
+np.savetxt("3_total_foresight_asymetric_2_select_best_model_and_lr_stable_no_dist_4_models_lr0,003train.csv", np.column_stack((loss_train_hist,r2_train_hist,pois_train_hist)), fmt="%.6f", delimiter=",")
