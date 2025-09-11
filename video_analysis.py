@@ -1,7 +1,11 @@
 import cv2
 import numpy as np
+import csv
 from ultralytics import YOLO
-
+import torch    
+from load_data_as_tensor_v2 import to_tensor
+from predict_and_plot import predict
+from raceline_prediction_model_v3 import TrackNetConditioned
 
 def plot_points(points, img):
     for point in points:
@@ -25,13 +29,12 @@ def write_line_between_box_centers(img, boxes):
 def plot_bboxes(results):
     img = results[0].orig_img # original image
     names = results[0].names # class names dict
-    scores = results[0].boxes.conf.numpy() # probabilities
-    classes = results[0].boxes.cls.numpy() # predicted classes
-    boxes = results[0].boxes.xyxy.numpy().astype(np.int32) # bboxes
+    scores= results[0].boxes.conf.cpu().numpy() if hasattr(results[0], "cuda") or hasattr(results[0], "cpu") else results[0].boxes.conf.numpy() # probabilities
+    classes = results[0].boxes.cls.cpu().numpy() if hasattr(results[0], "cuda") or hasattr(results[0], "cpu") else results[0].boxes.cls.numpy() # predicted classes
+    boxes = results[0].boxes.xyxy.cpu().numpy().astype(np.int32) if hasattr(results[0], "cuda") or hasattr(results[0], "cpu") else results[0].boxes.xyxy.cpu().numpy().astype(np.int32) # bboxes
     for score, cls, bbox in zip(scores, classes, boxes): # loop over all bboxes
         class_label = names[cls] # class name
-        #label = f"{class_label} : {score:0.2f}" # bbox label
-        label = f"{score:0.2f}"
+        label = f"{score:0.2f}" # bbox label
         lbl_margin = 3 #label margin
 
         if class_label == 'blue_cone':
@@ -74,6 +77,8 @@ def calculate_angle_between_lines(line1_points, line2_points):
     Returns:
         Angle in degrees between the two lines (0-90 degrees)
     """
+
+    print(f"line1_points: {line1_points}, line2_points: {line2_points}")
     # Calculate direction vectors for both lines
     vector1 = np.array([line1_points[1][0] - line1_points[0][0], 
                        line1_points[1][1] - line1_points[0][1]])
@@ -100,7 +105,7 @@ def calculate_angle_between_lines(line1_points, line2_points):
     # Calculate the angle in radians and convert to degrees
     angle_radians = np.arccos(abs(cos_angle))  # abs() to get the acute angle
     angle_degrees = np.degrees(angle_radians)
-    
+
     if line2_points[0][1] < line2_points[1][1]:
         return angle_degrees
     else:
@@ -108,18 +113,39 @@ def calculate_angle_between_lines(line1_points, line2_points):
 
 cap = cv2.VideoCapture("FSAE2.mp4")
 
-model = YOLO("train/weights/best.pt")
+model = YOLO("train/weights/best.pt").to("cpu")
 
 #i: int = 0
 
 p: int = 0
+
+###### da spostare ######
+symmetric=0
+also_current_position=0
+total_foresight=3 #basically f=total_foresight/2 NOTE must be even number if symmetric
+foreward_foresight=3
+total_sampling=2 #basically total_sampling
+foreward_sampling=2
+
+with_thetas=0 #yes=1 no=0
+with_normal_dists=0 #difference between v1 and v2
+input_size=(2+with_normal_dists+with_thetas)*(total_foresight+1)
+hidden_size1=450
+hidden_size2and3=200
+#if you want it to be symmetric either put symmetric+1 or let it be (total_sampling)/2
+#if you want it to be only foreward (no current position) let it be sampling+1
+output_size=total_sampling+(1*also_current_position)
+racetrack_model=TrackNetConditioned(input_size,hidden_size1,hidden_size2and3,output_size)
+##############
+
+
 
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
 
-    results = model.predict(source=frame, save=True, conf=0.8)
+    results = model.predict(source=frame, save=True, conf=0.7)
     
     #cv2.imwrite(f"output/frame_{i}.jpg", frame)
 
@@ -149,27 +175,57 @@ while cap.isOpened():
         lines.append([box_centers[0], box_centers[1]])
         i += 1
 
-    with open(f'output/results_{p}.txt', 'a') as f:
-        f.write(f"Number of blue cones: {len(blue_box_list)}\n")
-        f.write(f"Number of yellow cones: {len(yellow_box_list)}\n")
-        f.write(f"Number of lines: {len(lines)}\n")
-        
-        j = 0
-        while j < len(lines) - 1:
-            line1 = lines[j]
-            line2 = lines[j + 1]
-            #print(f"line1: {line1}, line2: {line2}")
-            angle = calculate_angle_between_lines(line1, line2)
-            #print(f"Angle between the two lines: {angle:.2f} degrees")
-            # Also add the angle value near the intersection of the lines (if they intersect)
-            # Calculate approximate midpoint between the two lines for display
-            mid_x = int((line1[0][0] + line1[1][0] + line2[0][0] + line2[1][0]) / 4)
-            mid_y = int((line1[0][1] + line1[1][1] + line2[0][1] + line2[1][1]) / 4)
-            cv2.putText(img, f"{angle:.5f} degrees", (mid_x, mid_y), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
-            # Also add the angle value to the results file
-            f.write(f"Angle between line {j} and line {j + 1}: {angle:.5f} degrees\n")
-            j += 1
+#turn into function get_frame_data()
+    frame_data = np.empty((len(lines)+1, 2))  # 2 columns for [line_width, angle]
+    Raceline = np.empty((len(lines)+1, 1))    # 1 column for raceline value
+    #writer.writerow(["line_width", "angle", "correction", "distance_between_normals"])
+    frame_data[0] = np.array([5.0, 0.0])  # First line with fake angle 0.0
+    Raceline[0]=np.array(0.5)
+    pt1 = (483, 494) #hard coded data from the video to have an initial normal of reference
+    pt2 = (835, 493)
+    cv2.line(img, pt1, pt2, (0, 255, 0), 2)
+
+    line0 = [pt1, pt2]
+    line2 = lines[0]
+
+    angle = calculate_angle_between_lines(line0, line2)
+
+    cv2.putText(img, f"{angle:.5f} degrees", (pt1[0], pt1[1] - 10), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+
+    frame_data[1]=np.array([5.0, angle])
+    Raceline[1]=np.array(0)
+    j = 0
+    while j < len(lines) - 1:
+        line1 = lines[j]
+        line2 = lines[j + 1]
+        #print(f"line1: {line1}, line2: {line2}")
+        angle = calculate_angle_between_lines(line1, line2)
+        #print(f"Angle between the two lines: {angle:.2f} degrees")
+        # Also add the angle value near the intersection of the lines (if they intersect)
+        # Calculate approximate midpoint between the two lines for display
+        mid_x = int((line1[0][0] + line1[1][0] + line2[0][0] + line2[1][0]) / 4)
+        mid_y = int((line1[0][1] + line1[1][1] + line2[0][1] + line2[1][1]) / 4)
+        cv2.putText(img, f"{angle:.5f} degrees", (mid_x, mid_y), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+        # Also add the angle value to the results file
+        #f.write(f"Angle between line {j} and line {j + 1}: {angle:.5f} degrees\n")
+        frame_data[j+2]=np.array([5.0, angle])  # Example values add 0.0, 5.0]
+        Raceline[j+2]=np.array([0])
+        j += 1
+    center=np.array([0])
+    frame_data = np.array([frame_data[:, 0], frame_data[:, 1]])
+    back_foresight = total_foresight-foreward_foresight
+    back_sampling = total_sampling-foreward_sampling
+    X,Y = to_tensor(frame_data,Raceline,center,back_foresight,foreward_foresight,back_sampling,foreward_sampling-1,len(frame_data))
+    current_positions=Y[:,total_sampling-foreward_sampling]
+    file = X,Y,current_positions
+    
+    predictions, raceline_for_plot = predict(file,racetrack_model)
+
+    print(predictions)
+    
+
 
     cv2.imwrite(f"output/output_{p}.jpg", img)
     cv2.imshow("Frame", frame)

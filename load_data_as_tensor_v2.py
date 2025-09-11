@@ -26,7 +26,7 @@ def load_data_as_np(tracks_dir,racing_line_dir,filename,with_thetas,with_dists):
 
     return features, raceline, len(l)
 
-def _to_tensor(features, raceline,centers,back_foresight,foreward_foresight,back_sampling,foreward_sampling, track_length):
+def to_tensor(features, raceline,centers,back_foresight,foreward_foresight,back_sampling,foreward_sampling, track_length):
     #crea gli indici per ogni training sample, ovvero "puntocentrale" e indici precedenti e successivi:
     # indici input: (track_length, input_size)
     input_idx = (centers[:, None] + np.arange(-back_foresight, foreward_foresight+1)) % track_length
@@ -61,7 +61,7 @@ def load_data_as_tensor(tracks_dir,racing_line_dir,filename,with_thetas,with_dis
     #crea una lista di indici di tutt i punti
     centers = np.arange(track_length)
 
-    X,Y = _to_tensor(features,raceline,centers,half_in,half_in,half_out,half_out,track_length)
+    X,Y = to_tensor(features,raceline,centers,half_in,half_in,half_out,half_out,track_length)
     
     return X,Y
 
@@ -78,7 +78,7 @@ def load_data_as_tensor_asymmetric(tracks_dir,racing_line_dir,filename,with_thet
     #crea una lista di indici di tutt i punti
     centers = np.arange(track_length)
 
-    X,Y = _to_tensor(features,raceline,centers,back_foresight,foreward_foresight,back_sampling,foreward_sampling,track_length)
+    X,Y = to_tensor(features,raceline,centers,back_foresight,foreward_foresight,back_sampling,foreward_sampling,track_length)
 
     return X,Y
 
@@ -102,7 +102,7 @@ def load_just_curves(tracks_dir,racing_line_dir,filename,with_thetas,with_dists,
     back_foresight = total_foresight-foreward_foresight
     back_sampling = total_sampling-foreward_sampling
 
-    X,Y =_to_tensor(features,raceline,centers,back_foresight,foreward_foresight,back_foresight,foreward_sampling,back_sampling)
+    X,Y =to_tensor(features,raceline,centers,back_foresight,foreward_foresight,back_foresight,foreward_sampling,back_sampling)
     
     return X,Y
 
