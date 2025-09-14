@@ -225,7 +225,7 @@ def calculate_angle_between_lines(line1_points, line2_points):
     else:
         return -angle_degrees
 
-cap = cv2.VideoCapture("FSAE2L.mp4")
+cap = cv2.VideoCapture("FSAE2LONG.mp4")
 
 model = YOLO("train/weights/best.pt")
 
@@ -417,35 +417,38 @@ while cap.isOpened():
 
         predictions_as_np_array = predictions.detach().numpy()
 
-        predictions_list = predictions_as_np_array.flatten().tolist()
+        predictions=predictions.detach().numpy()
+        predictions_list=[predictions[i,0] for i in range(len(predictions))]
+        predictions_list.append(predictions[-1,-1])
 
-        start_pt_first_normal = pixel_al_t(list_of_all_lines_pixels[0], predictions_list[0])
-        start_pt_second_normal = pixel_al_t(list_of_all_lines_pixels[1], predictions_list[1])
+        for i in range(len(predictions_list)-1):
+            start_pt_first_normal = pixel_al_t(list_of_all_lines_pixels[i], predictions_list[i])
+            start_pt_second_normal = pixel_al_t(list_of_all_lines_pixels[i+1], predictions_list[i+1])
 
-        # cv2.circle(img, start_pt_first_normal, 5, (0, 255, 0), -1)
-        # cv2.circle(img, start_pt_second_normal, 5, (0, 255, 0), -1)
-        
-        first_direction = ''
+            # cv2.circle(img, start_pt_first_normal, 5, (0, 255, 0), -1)
+            # cv2.circle(img, start_pt_second_normal, 5, (0, 255, 0), -1)
+            
+            first_direction = ''
 
-        if predictions_list[0] > 0.5:
-            first_direction = 'left'
-        else:
-            first_direction = 'right'
+            if predictions_list[i] > 0.5:
+                first_direction = 'left'
+            else:
+                first_direction = 'right'
 
-        second_direction = ''
+            second_direction = ''
 
-        if predictions_list[1] > 0.5:
-            second_direction = 'left'
-        else:
-            second_direction = 'right'
+            if predictions_list[i+1] > 0.5:
+                second_direction = 'left'
+            else:
+                second_direction = 'right'
 
-        processed_stereo_lines = process_stereo_lines(img, line_car_pixels, list_of_all_lines_pixels[0], start_pt_first_normal, direction=first_direction)
-        img = processed_stereo_lines['output_image']
-        transformed_points = processed_stereo_lines['transformed_points']
+            processed_stereo_lines = process_stereo_lines(img, line_car_pixels, list_of_all_lines_pixels[i], start_pt_first_normal, direction=first_direction)
+            img = processed_stereo_lines['output_image']
+            transformed_points = processed_stereo_lines['transformed_points']
 
-        processed_stereo_lines = process_stereo_lines(img, transformed_points, list_of_all_lines_pixels[1], start_pt_second_normal, direction=second_direction)
-        img = processed_stereo_lines['output_image']
-        transformed_points = processed_stereo_lines['transformed_points']
+            processed_stereo_lines = process_stereo_lines(img, transformed_points, list_of_all_lines_pixels[i+1], start_pt_second_normal, direction=second_direction)
+            img = processed_stereo_lines['output_image']
+            transformed_points = processed_stereo_lines['transformed_points']
 
     frame_count += 1
     #points = [(482, 496), (349, 411), (356, 359)]
