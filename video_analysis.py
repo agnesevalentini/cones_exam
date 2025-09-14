@@ -140,10 +140,10 @@ racetrack_model.load_state_dict(torch.load("track_model_very_small.pt", map_loca
 
 ##############
 
-
-
 while cap.isOpened():
+    
     ret, frame = cap.read()
+    # frame = cv2.imread("output/output_122.jpg")
     if not ret:
         break
 
@@ -198,40 +198,52 @@ while cap.isOpened():
     frame_data[1]=np.array([5.0, angle])
     Raceline[1]=np.array(0)
     j = 0
-    while j < len(lines) - 1:
-        line1 = lines[j]
-        line2 = lines[j + 1]
-        #print(f"line1: {line1}, line2: {line2}")
-        angle = calculate_angle_between_lines(line1, line2)
-        #print(f"Angle between the two lines: {angle:.2f} degrees")
-        # Also add the angle value near the intersection of the lines (if they intersect)
-        # Calculate approximate midpoint between the two lines for display
-        mid_x = int((line1[0][0] + line1[1][0] + line2[0][0] + line2[1][0]) / 4)
-        mid_y = int((line1[0][1] + line1[1][1] + line2[0][1] + line2[1][1]) / 4)
-        cv2.putText(img, f"{angle:.5f} degrees", (mid_x, mid_y), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
-        # Also add the angle value to the results file
-        #f.write(f"Angle between line {j} and line {j + 1}: {angle:.5f} degrees\n")
-        frame_data[j+2]=np.array([5.0, angle])  # Example values add 0.0, 5.0]
-        Raceline[j+2]=np.array([0])
-        j += 1
-    center=np.array([0])
-    frame_data = np.array([frame_data[:, 0], frame_data[:, 1]])
-    back_foresight = total_foresight-foreward_foresight
-    back_sampling = total_sampling-foreward_sampling
-    X,Y = to_tensor(frame_data,Raceline,center,back_foresight,foreward_foresight,back_sampling,foreward_sampling-1,len(frame_data))
-    current_positions=Y[:,total_sampling-foreward_sampling]
-    file = X,Y,current_positions
-    
-    predictions, raceline_for_plot = predict(file,racetrack_model)
+    if len(lines)<2:
+        continue
+    else:
+        while j < len(lines) - 1:
+            line1 = lines[j]
+            line2 = lines[j + 1]
+            #print(f"line1: {line1}, line2: {line2}")
+            angle = calculate_angle_between_lines(line1, line2)
+            #print(f"Angle between the two lines: {angle:.2f} degrees")
+            # Also add the angle value near the intersection of the lines (if they intersect)
+            # Calculate approximate midpoint between the two lines for display
+            mid_x = int((line1[0][0] + line1[1][0] + line2[0][0] + line2[1][0]) / 4)
+            mid_y = int((line1[0][1] + line1[1][1] + line2[0][1] + line2[1][1]) / 4)
+            cv2.putText(img, f"{angle:.5f} degrees", (mid_x, mid_y), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+            # Also add the angle value to the results file
+            #f.write(f"Angle between line {j} and line {j + 1}: {angle:.5f} degrees\n")
+            frame_data[j+2]=np.array([5.0, angle])  # Example values add 0.0, 5.0]
+            Raceline[j+2]=np.array([0])
+            j += 1
+        print(len(lines)-1)
+        center=np.arange(len(lines)-1)
+        print(center)
+        print("-----------------------")
+        frame_data = np.array([frame_data[:, 0], frame_data[:, 1]])
+        back_foresight = total_foresight-foreward_foresight
+        back_sampling = total_sampling-foreward_sampling
+        X,Y = to_tensor(frame_data,Raceline,center,back_foresight,foreward_foresight,back_sampling,foreward_sampling-1,len(frame_data)+1)
+        current_positions=Y[:,total_sampling-foreward_sampling]
+        file = X,Y,current_positions
+        
+        predictions, raceline_for_plot = predict(file,racetrack_model)
+        if p == 129 or p==125:
+            print("----------------------------------")
+            print(back_foresight,back_sampling,foreward_foresight,total_sampling)
+            print(frame_data)
+            print(X)
+            print(predictions)
+            print(p)
+            print("----------------------------------")
+        
 
-    print(predictions)
-    
 
-
-    cv2.imwrite(f"output/output_{p}.jpg", img)
-    cv2.imshow("Frame", frame)
-    cv2.waitKey(5)
+        cv2.imwrite(f"output/output_{p}.jpg", img)
+        cv2.imshow("Frame", frame)
+        cv2.waitKey(5)
 
 
     # for r in results:
@@ -241,5 +253,5 @@ while cap.isOpened():
     #             f.write(f"Frame shape: {frame.shape}\n")
     #             f.write(f"{box.xyxy.numpy()} {box.conf.numpy()} {box.cls.numpy()}\n")
     p += 1
-
+    
 cap.release()

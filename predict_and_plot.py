@@ -112,12 +112,13 @@ if __name__ == "__main__":
     poiss_obj=TweedieDevianceScore(power=0).to(device)
     r2_obj=R2Score().to(device)
     all_files=[]
+    normal_dist_list=[]
     print("asymmetric data")
     for filename in filenames:                                                                 #with normal lengths
         X,Y = load_data_as_tensor_asymmetric(tracks_dir, racing_line_dir, filename, with_thetas, 1, total_foresight, foreward_foresight, total_sampling, foreward_sampling)
         # X shape: [lentrack, inputsize/2, 3]
-        normal_dist_list = X[..., 2:]   # [lentrack, inputsize/2, 1]
-        normal_dist_list = normal_dist_list[:, 0]
+        normal_dist = X[..., 2:]   # [lentrack, inputsize/2, 1]
+        normal_dist_list.append(normal_dist[:, 0])
         X = X[..., :2]    # [lentrack, inputsize/2, 2]
         X,Y = X, Y = X.to(device), Y.to(device)
         current_positions=Y[:,total_sampling-foreward_sampling].detach().clone()
@@ -130,7 +131,7 @@ if __name__ == "__main__":
     total_r2 = 0.0
     total_poiss = 0.0
     with torch.no_grad():
-        for file in all_files:
+        for j,file in enumerate(all_files):
             # carica i dati e li porta sul device corretto
             X,Y,current_positions=file
             pred, save_pred_for_plot=predict(file,model)
@@ -146,13 +147,13 @@ if __name__ == "__main__":
             fig, axs = plt.subplots(1, 1, figsize=(6,12))
 
             # Ensure normal_lengths_list is a numpy array
-            normal_dist_list = normal_dist_list.cpu().numpy() if hasattr(normal_dist_list, device) else np.array(normal_dist_list)
+            #normal_dist_list = X[..., 2:][:,0].cpu().numpy() if hasattr(X, device) else np.array(X[..., 2:][:,0])
             lengths = X[:, 0, 0].cpu().numpy() if hasattr(X, device) else np.array(X[:, 0, 0])
             alphas = X[:, 0, 1].cpu().numpy() if hasattr(X, device) else np.array(X[:, 0, 1])
             current_positions = current_positions.cpu().numpy() if hasattr(current_positions, device) else np.array(current_positions)
             save_pred_for_plot=save_pred_for_plot.cpu().numpy() if hasattr(save_pred_for_plot, device) else np.array(save_pred_for_plot)
 
-            plot_tracks_from_features(axs,lengths,alphas,normal_dist_list,current_positions,save_pred_for_plot,"boh")
+            plot_tracks_from_features(axs,lengths,alphas,normal_dist_list[j],current_positions,save_pred_for_plot,"boh")
             plt.show()
         
 

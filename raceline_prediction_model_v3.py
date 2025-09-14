@@ -8,7 +8,7 @@ import numpy as np
 import collections
 from load_data_as_tensor_v2 import load_data_as_tensor as load_data_as_tensor_v2, load_data_as_tensor_asymmetric
 import time
-
+import sys
 class TrackNetConditioned(nn.Module):
     def __init__(self, input_size, hidden_size1, hidden_size2and3, output_size):
 
@@ -85,7 +85,13 @@ def train(files, models, loss_fn):
             t_batch=time.time()
             
             batch_X = X.view(track_length, -1)   # shape: (track_length, input_size * n_features)
-            pred = model(batch_X, current_positions)                # shape: (track_length, output_size)
+            pred = torch.zeros_like(Y)
+            current_position = current_positions[0]
+            for i in range(len(X)):
+            # forward
+                pred_single = model(X[i].flatten(), current_position)    # appiattisce input se necessario  #change between current_positions[i] and current_position 
+                pred[i] = pred_single
+                current_position = pred_single[0].detach().clone()            # shape: (track_length, output_size)
             loss = loss_fn(pred, Y)
             if best_loss>loss:
                 best_loss=loss
@@ -142,10 +148,13 @@ def test(files, model, loss_fn):
         for file in files:
             # carica i dati e li porta sul device corretto
             X,Y,current_positions = file
-
+            pred = torch.zeros_like(Y)
+            current_position = current_positions[0]
+            for i in range(len(X)):
             # forward
-            pred = model(X.view(X.shape[0], -1),current_positions)    # appiattisce input se necessario 
-
+                pred_single = model(X[i].flatten(), current_position)    # appiattisce input se necessario  #change between current_positions[i] and current_position 
+                pred[i] = pred_single
+                current_position = pred_single[0].detach().clone()
             # calcola loss
             loss = loss_fn(pred, Y)
             total_loss += loss.item()
@@ -169,10 +178,10 @@ if __name__== "__main__":
     also_current_position=0
 
 
-    total_foresight=3 #basically f=total_foresight/2 NOTE must be even number if symmetric
-    foreward_foresight=3
-    total_sampling=2 #basically total_sampling
-    foreward_sampling=2
+    total_foresight=sys.argv[1] if len(sys.argv)>1 else 3 #basically f=total_foresight/2 NOTE must be even number if symmetric
+    foreward_foresight=sys.argv[2] if len(sys.argv)>2 else 3
+    total_sampling=sys.argv[3] if len(sys.argv)>3 else 2 #basically total_sampling
+    foreward_sampling=sys.argv[4] if len(sys.argv)>4 else 2
 
     with_thetas=0 #yes=1 no=0
     with_normal_dist=0 #difference between v1 and v2
@@ -298,8 +307,8 @@ if __name__== "__main__":
 
 
         best_model_weights, best_loss,new_current_positions_eval=evaluation(validation_data,net,loss_fn)
-        for i,idx in enumerate(split_indexs[t%n_splits]):
-            usable_data[idx]= (usable_data[idx][0], usable_data[idx][1], ((1-(min(t/epochs,1))) * usable_data[idx][2] + (min(t/epochs,1)) * new_current_positions_eval[i]).detach().clone())
+        # for i,idx in enumerate(split_indexs[t%n_splits]):
+        #     usable_data[idx]= (usable_data[idx][0], usable_data[idx][1], ((1-(min(t/epochs,1))) * usable_data[idx][2] + (min(t/epochs,1)) * new_current_positions_eval[i]).detach().clone())
         
         if overall_best_loss>best_loss:
             overall_best_loss=best_loss
@@ -307,8 +316,8 @@ if __name__== "__main__":
         test_clock=time.time() 
         
         avg_loss,r2,poiss,new_current_positions_test=test(test_data,net["model"][0],loss_fn)
-        for idx in range(len(test_data)):
-            test_data[idx]= (test_data[idx][0], test_data[idx][1], ((1-(min(t/epochs,1))) * test_data[idx][2] + (min(t/epochs,1)) * new_current_positions_test[idx]).detach().clone())
+        # for idx in range(len(test_data)):
+        #     test_data[idx]= (test_data[idx][0], test_data[idx][1], ((1-(min(t/epochs,1))) * test_data[idx][2] + (min(t/epochs,1)) * new_current_positions_test[idx]).detach().clone())
         avg_loss_train,r2_train,poiss_train,_=test(train_data,net["model"][0],loss_fn)
 
         print(f"Test Error:        Avg loss: {avg_loss:>8f}, r2: {r2:>8f}, mean poisson deviance: {poiss:>8f}")
@@ -343,6 +352,8 @@ if __name__== "__main__":
 
     #track_model_using_only_predict.pt = total_foresight=foreward_foresight=20 total_sampling=foreward_sampling=4
 
-    torch.save(overall_best_model, "small_track_model_using_only_predict_slower_transformation_of_data.pt")
-    np.savetxt("3_total_foresight_asymetric_2_select_best_model_and_lr_stable_no_dist_4_models_lr0,003test.csv", np.column_stack((loss_hist,r2_hist,pois_hist)), fmt="%.6f", delimiter=",")
-    np.savetxt("3_total_foresight_asymetric_2_select_best_model_and_lr_stable_no_dist_4_models_lr0,003train.csv", np.column_stack((loss_train_hist,r2_train_hist,pois_train_hist)), fmt="%.6f", delimiter=",")
+    model_file_name=sys.argv[5] if len(sys.argv)>5 else "small_track_model_using_only_predict_slower_transformation_of_data"
+    data_file_name=sys.argv[6] if len(sys.argv)>6 else "3_total_foresight_asymetric_2_select_best_model_and_lr_stable_no_dist_4_models_lr0,003"
+    torch.save(overall_best_model, model_file_name+".pt")
+    np.savetxt(data_file_name+"test.csv", np.column_stack((loss_hist,r2_hist,pois_hist)), fmt="%.6f", delimiter=",")
+    np.savetxt(data_file_name+"train.csv", np.column_stack((loss_train_hist,r2_train_hist,pois_train_hist)), fmt="%.6f", delimiter=",")
